@@ -1,8 +1,7 @@
-# Publishes this fork's desktop release when a v*-folder.* tag is pushed.
-# Windows, macOS, and Linux build in parallel into one draft release, which is published
-# only after every platform job succeeds. Packaging follows windows-signing-rehearsal.yml
-# and the official release matrices; the updater feed points at this fork through
-# config/electron-builder.config.cjs.
+# Publishes this fork's Windows desktop release when a v*-folder.* tag is pushed.
+# Windows packages into a draft release, which is published only after packaging succeeds.
+# Packaging follows windows-signing-rehearsal.yml; the updater feed points at this fork
+# through config/electron-builder.config.cjs.
 name: Folder Git release
 
 on:
@@ -14,21 +13,11 @@ permissions:
   contents: write
 
 jobs:
-  orcad-template:
-    permissions:
-      contents: read
-      actions: read
-    uses: ./.github/workflows/qualified-orcad-template.yml
-    with:
-      ref: ${{ github.sha }}
-      fast_runners: false
-
-  # electron-builder opens one GitHub publisher per artifact. Several artifacts and several
-  # platform jobs publishing at once would each POST /releases when the release is missing,
-  # and the losers abort with 422 already_exists. One draft release up front removes the race
-  # and keeps the release invisible until every platform has uploaded.
+  # electron-builder opens one GitHub publisher per artifact. Several artifacts publishing at
+  # once would each POST /releases when the release is missing, and the losers abort with
+  # 422 already_exists. One draft release up front removes the race and keeps the release
+  # invisible until packaging has uploaded everything.
   release-draft:
-    needs: orcad-template
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -45,13 +34,11 @@ jobs:
           fi
 
   windows:
-    needs: [orcad-template, release-draft]
+    needs: release-draft
     runs-on: windows-2022
     timeout-minutes: 240
     permissions:
       contents: write
-    env:
-      ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
 
     steps:
       - name: Checkout
@@ -120,13 +107,6 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
-      # After the app build so nothing that cleans out/ can drop it; electron-builder ships it.
-      - name: Download the orcad deployment template
-        uses: actions/download-artifact@v8
-        with:
-          name: orcad-template
-          path: out/orcad-template
-
       - name: Package and publish the Windows release
         shell: pwsh
         env:
@@ -140,191 +120,8 @@ jobs:
             throw 'electron-builder --win did not produce dist/win-unpacked/Orca.exe'
           }
 
-  macos:
-    needs: [orcad-template, release-draft]
-    runs-on: macos-15
-    timeout-minutes: 120
-    permissions:
-      contents: write
-    env:
-      ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
-      # The fork has no Apple signing certificate; keep the build ad-hoc signed.
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup pnpm
-        uses: pnpm/setup@v2
-        with:
-          install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: package.json
-          check-latest: true
-          cache: pnpm
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            mobile/pnpm-lock.yaml
-
-      - name: Resolve electron-builder download versions
-        id: eb-versions
-        shell: bash
-        run: node -p "const d = require('./package.json').devDependencies; 'versions=electron' + d.electron + '-builder' + d['electron-builder']" >> "$GITHUB_OUTPUT"
-
-      - name: Cache electron-builder downloads
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-          key: electron-builder-mac-${{ steps.eb-versions.outputs.versions }}
-          restore-keys: |
-            electron-builder-mac-
-
-      - name: Install dependencies
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: pnpm install --frozen-lockfile
-
-      - uses: ./.github/actions/install-mobile-dependencies
-
-      - name: Build app
-        run: pnpm build:release
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-
-      - name: Download the orcad deployment template
-        uses: actions/download-artifact@v8
-        with:
-          name: orcad-template
-          path: out/orcad-template
-
-      - name: Package and publish the macOS release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          node config/scripts/orcad-distribution/prebuilds/pinned-node-downloads.mjs darwin-arm64 darwin-x64
-          node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron
-          pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --arm64 --x64 --publish always
-          test -d dist/mac-arm64/Orca.app
-          test -d dist/mac/Orca.app
-
-  linux:
-    needs: [orcad-template, release-draft]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            arch: x64
-            builder_arch: --x64
-            unpacked: dist/linux-unpacked
-            arm64_release: ''
-          - os: ubuntu-24.04-arm
-            arch: arm64
-            builder_arch: --arm64
-            unpacked: dist/linux-arm64-unpacked
-            arm64_release: '1'
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
-    permissions:
-      contents: write
-    env:
-      ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
-      ORCA_LINUX_ARM64_RELEASE: ${{ matrix.arm64_release }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup pnpm
-        uses: pnpm/setup@v2
-        with:
-          install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: package.json
-          check-latest: true
-          cache: pnpm
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            mobile/pnpm-lock.yaml
-
-      - name: Resolve electron-builder download versions
-        id: eb-versions
-        shell: bash
-        run: node -p "const d = require('./package.json').devDependencies; 'versions=electron' + d.electron + '-builder' + d['electron-builder']" >> "$GITHUB_OUTPUT"
-
-      - name: Cache electron-builder downloads
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: electron-builder-linux-${{ matrix.arch }}-${{ steps.eb-versions.outputs.versions }}
-          restore-keys: |
-            electron-builder-linux-${{ matrix.arch }}-
-
-      # pnpm's bundled node-gyp is not executable on Linux runners.
-      - name: Use external node-gyp to avoid pnpm's bundled copy
-        shell: bash
-        run: |
-          npm install -g node-gyp@11.5.0
-          echo "npm_config_node_gyp=$(npm root -g)/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
-
-      - name: Install dependencies
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: pnpm install --frozen-lockfile
-
-      - uses: ./.github/actions/install-mobile-dependencies
-
-      # Stock Ubuntu lacks the AT-SPI bindings verify:computer-native needs and rpm for fpm.
-      - name: Install Linux computer-use provider dependencies
-        shell: bash
-        run: sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-atspi-2.0 at-spi2-core xclip xdotool rpm
-
-      - name: Build app
-        run: pnpm build:release
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-
-      - name: Download the orcad deployment template
-        uses: actions/download-artifact@v8
-        with:
-          name: orcad-template
-          path: out/orcad-template
-
-      - name: Package and publish the Linux release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron
-          pnpm exec electron-builder --config config/electron-builder.config.cjs --linux AppImage deb rpm ${{ matrix.builder_arch }} --publish always
-          test -d ${{ matrix.unpacked }}
-
   release-publish:
-    needs: [windows, macos, linux]
+    needs: [windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
