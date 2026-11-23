@@ -30,6 +30,7 @@ import {
 import { assertRuntimeReadWslDistroRunning } from './runtime-wsl-background-read-gate'
 import type { WorktreeAtRiskLocalFiles } from '../../../../shared/worktree/removal/at-risk-local-files'
 import { readWorktreeAtRiskLocalFiles } from '../../../git/worktrees/removal/worktree-at-risk-local-files'
+import { isFolderNestedGitSelector } from '../../../../shared/folder-workspaces/folder-nested-git'
 
 // Followers nobody is looking at: a stopped distro must stay stopped for them (E9).
 async function resolveGatedGitTarget(
@@ -142,7 +143,12 @@ export class RuntimeGitStatusCommands {
           }),
         checkout: () => provider.checkoutBranch(worktreePath, checkoutTarget, undefined, detached),
         getAgentBlocker: async () => this.host.getAgentSwitchBlocker?.(worktreePath) ?? null,
-        onSwitched: () => this.host.recordBranchSwitched?.(target.worktree, detached)
+        // Synthetic nested selectors own no metadata row; a write would target a fake worktree.
+        ...(isFolderNestedGitSelector(worktreeSelector)
+          ? {}
+          : {
+              onSwitched: () => this.host.recordBranchSwitched?.(target.worktree, detached)
+            })
       }
     )
     return { ok: true, branch: result.branch }
@@ -168,7 +174,9 @@ export class RuntimeGitStatusCommands {
               ? provider.checkoutBranch(path, branch, creation)
               : provider.checkoutBranch(path, branch),
           getAgentBlocker: async () => this.host.getAgentSwitchBlocker?.(path) ?? null,
-          onSwitched: () => this.host.recordBranchSwitched?.(target.worktree)
+          ...(isFolderNestedGitSelector(worktreeSelector)
+            ? {}
+            : { onSwitched: () => this.host.recordBranchSwitched?.(target.worktree) })
         }
       )
       return { ok: true, branch: result.branch, head: result.head }

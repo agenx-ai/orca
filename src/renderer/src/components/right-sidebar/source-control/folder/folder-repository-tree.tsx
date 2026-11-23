@@ -1,16 +1,32 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowUp,
   ChevronDown,
   ChevronRight,
   Copy,
+  EyeOff,
   Folder,
   FolderOpen,
   GitBranch,
-  GitFork
+  GitFork,
+  MoreHorizontal
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/class-names'
 import { useTranslate } from '@/i18n/use-translate'
 import type { FolderNestedRepo } from '../../../../../../shared/folder-workspaces/folder-nested-git'
+import { useFolderRepoCollapsedDirs } from './use-folder-repo-collapsed-dirs'
+
+export type FolderRepoViewMode = 'auto' | 'list' | 'tree'
+export type FolderRepoAction = 'fetch' | 'pull' | 'push' | 'reveal' | 'copy' | 'exclude'
 
 type DirNode = {
   kind: 'dir'
@@ -114,7 +130,11 @@ function RepoRow({
   isCollapsed,
   childrenLabel,
   onToggle,
-  onSelect
+  onSelect,
+  onAction,
+  actionsDisabled,
+  busy,
+  excludeSupported
 }: {
   repo: FolderNestedRepo
   selected: boolean
@@ -123,6 +143,10 @@ function RepoRow({
   childrenLabel: string
   onToggle: (() => void) | null
   onSelect: () => void
+  onAction?: (repo: FolderNestedRepo, action: FolderRepoAction) => void
+  actionsDisabled?: boolean
+  busy?: boolean
+  excludeSupported?: boolean
 }): React.JSX.Element {
   const t = useTranslate()
   return (
@@ -198,21 +222,90 @@ function RepoRow({
           )}
         </button>
       ) : null}
+      {onAction ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              data-testid="folder-repo-actions"
+              data-repo={repo.relativePath}
+              aria-label={t(
+                'auto.components.right.sidebar.FolderRepoScm.repositoryActions',
+                'Repository actions'
+              )}
+              disabled={actionsDisabled || busy}
+              className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:bg-accent disabled:opacity-40"
+            >
+              <MoreHorizontal className="size-3.5" aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[180px]">
+            <DropdownMenuItem onSelect={() => onAction(repo, 'fetch')}>
+              <ArrowDownToLine className="size-3.5" />
+              {t('auto.components.right.sidebar.FolderRepoScm.fetchRepository', 'Fetch')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAction(repo, 'pull')}>
+              <ArrowDown className="size-3.5" />
+              {t('auto.components.right.sidebar.FolderRepoScm.pullRepository', 'Pull')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAction(repo, 'push')}>
+              <ArrowUp className="size-3.5" />
+              {t('auto.components.right.sidebar.FolderRepoScm.pushRepository', 'Push')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onAction(repo, 'reveal')}>
+              <FolderOpen className="size-3.5" />
+              {t(
+                'auto.components.right.sidebar.FolderRepoScm.revealRepository',
+                'Reveal in Explorer'
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAction(repo, 'copy')}>
+              <Copy className="size-3.5" />
+              {t('auto.components.right.sidebar.FolderRepoScm.copyRepositoryPath', 'Copy Path')}
+            </DropdownMenuItem>
+            {excludeSupported ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onAction(repo, 'exclude')}>
+                  <EyeOff className="size-3.5" />
+                  {t(
+                    'auto.components.right.sidebar.FolderRepoScm.excludeRepository',
+                    'Exclude Repository'
+                  )}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   )
 }
 
 export function FolderRepositoryTree({
+  rootKey,
   repos,
   selectedPath,
-  onSelect
+  onSelect,
+  viewMode = 'auto',
+  onAction,
+  actionsDisabled,
+  busyPath,
+  excludeSupported
 }: {
+  rootKey: string
   repos: readonly FolderNestedRepo[]
   selectedPath: string | null
   onSelect: (relativePath: string) => void
+  viewMode?: FolderRepoViewMode
+  onAction?: (repo: FolderNestedRepo, action: FolderRepoAction) => void
+  actionsDisabled?: boolean
+  busyPath?: string | null
+  excludeSupported?: boolean
 }): React.JSX.Element {
   const t = useTranslate()
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+  const [collapsed, toggle] = useFolderRepoCollapsedDirs(rootKey)
   const tree = useMemo(() => buildTree(repos), [repos])
   const childrenLabels = {
     worktrees: t('auto.components.right.sidebar.FolderRepoScm.worktrees', 'worktrees'),
@@ -224,19 +317,7 @@ export function FolderRepositoryTree({
     [repos]
   )
 
-  const toggle = (key: string): void => {
-    setCollapsed((current) => {
-      const next = new Set(current)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-  }
-
-  if (!nested) {
+  if (viewMode === 'list' || (viewMode === 'auto' && !nested)) {
     return (
       <div className="flex flex-col gap-px px-1 pb-1">
         {repos.map((repo) => (
@@ -249,6 +330,10 @@ export function FolderRepositoryTree({
             childrenLabel=""
             onToggle={null}
             onSelect={() => onSelect(repo.relativePath)}
+            onAction={onAction}
+            actionsDisabled={actionsDisabled}
+            busy={busyPath === repo.relativePath}
+            excludeSupported={excludeSupported}
           />
         ))}
       </div>
@@ -270,6 +355,10 @@ export function FolderRepositoryTree({
               childrenLabel={childrenLabels[childKindLabel(node)]}
               onToggle={node.children.length > 0 ? () => toggle(key) : null}
               onSelect={() => onSelect(node.repo.relativePath)}
+              onAction={onAction}
+              actionsDisabled={actionsDisabled}
+              busy={busyPath === node.repo.relativePath}
+              excludeSupported={excludeSupported}
             />
             {!isCollapsed && node.children.length > 0
               ? renderNodes(node.children, depth + 1)
@@ -283,6 +372,8 @@ export function FolderRepositoryTree({
         <div key={key}>
           <button
             type="button"
+            data-testid="folder-repo-dir"
+            data-path={node.path}
             onClick={() => toggle(key)}
             aria-expanded={!isCollapsed}
             className="flex w-full items-center gap-1 rounded-sm py-1 pr-2 text-left text-xs text-muted-foreground hover:bg-accent/40"

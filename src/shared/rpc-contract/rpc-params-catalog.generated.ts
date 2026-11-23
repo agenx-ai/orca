@@ -412,6 +412,7 @@ import {
   TerminalArtifactFileWrite
 } from './filesystem/files-terminal-artifact-params'
 import {
+  FolderReposExclude,
   FolderReposScan,
   FolderReposScanQuery,
   FolderReposSettings
@@ -1543,6 +1544,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'files.writeIfUnchanged': FileWriteIfUnchanged,
   'files.writeTerminalArtifact': TerminalArtifactFileWrite,
   'folderRepos.cancelScan': FolderReposScanQuery,
+  'folderRepos.exclude': FolderReposExclude,
   'folderRepos.scan': FolderReposScan,
   'folderRepos.scanProgress': FolderReposScanQuery,
   'folderRepos.settings': FolderReposSettings,

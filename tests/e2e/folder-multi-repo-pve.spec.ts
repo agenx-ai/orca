@@ -456,6 +456,20 @@ test('folder project discovers nested repos on a paired runtime', async ({ orcaP
   await expect(scanning).toHaveCount(0, { timeout: 60_000 })
   await expect(orcaPage.getByText('Scan was stopped.')).toBeVisible({ timeout: 60_000 })
 
+  // Lost transport surfaces the banner and blocks repository actions until the host returns.
+  sshRun(`pkill -f '[o]rcad\\.js' || true; sleep 1`)
+  const disconnectedBanner = orcaPage.locator('[data-testid="folder-repos-disconnected"]')
+  await expect(disconnectedBanner).toBeVisible({ timeout: 120_000 })
+  await expect(orcaPage.getByRole('button', { name: 'Rescan repositories' })).toBeDisabled()
+  await expect(
+    orcaPage.locator('[data-testid="folder-repo-actions"][data-repo="repo-scan"]')
+  ).toBeDisabled()
+
+  sshRun(
+    'NODE="$(ls /root/orcad-install/runtimes/*/bin/node | head -n 1)"; setsid nohup "$NODE" /root/orcad-install/orcad/orcad.js --bind 0.0.0.0 --pairing-address 10.10.10.104 --port 6768 --allow-public --json >> /root/orcad-data/logs/orcad.log 2>&1 < /dev/null &'
+  )
+  await expect(disconnectedBanner).toHaveCount(0, { timeout: 180_000 })
+
   sshRun(`rm -f ${FOLDER_PATH}/.vscode/settings.json`)
   sshRun(
     `rm -rf ${SUBMODULE_REPO_PATH} ${SUBMODULE_SOURCE_PATH} ${WORKTREE_REPO_PATH} ${WORKTREE_PATH} ${FOLDER_PATH}/${MARKER_REPO_RELATIVE_PATH} ${SCAN_FOLDER}`

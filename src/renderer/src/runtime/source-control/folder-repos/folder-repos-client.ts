@@ -58,6 +58,19 @@ export function getFolderReposScanProgress(
   )
 }
 
+export function excludeFolderNestedRepo(
+  target: RuntimeClientTarget,
+  folderWorktree: string,
+  relativePath: string
+): Promise<{ relativePath: string }> {
+  return callRuntimeRpc<{ relativePath: string }>(
+    target,
+    'folderRepos.exclude',
+    { folderWorktree, relativePath },
+    { timeoutMs: 10_000 }
+  )
+}
+
 export function cancelFolderReposScan(
   target: RuntimeClientTarget,
   folderWorktree: string,

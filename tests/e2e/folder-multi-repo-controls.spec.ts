@@ -123,6 +123,24 @@ test('folder scan shows repository progress and can be stopped', async ({
   await expect(repoARow).toBeVisible()
 })
 
+test('folder scan finds nested repos inside a parent work tree', async ({
+  orcaPage,
+  registerPostElectronShutdownCleanup
+}) => {
+  // Why: the scan covers a generated repository tree before the UI finishes rendering rows.
+  test.setTimeout(120_000)
+  const outer = mkdtempSync(path.join(os.tmpdir(), 'orca-nested-git-parent-worktree-'))
+  registerPostElectronShutdownCleanup(async () => rmSync(outer, { recursive: true, force: true }))
+  // The folder root is inside the parent's work tree, so Git reports it as a repository.
+  const root = path.join(createRepo(outer, 'parent'), 'workspace')
+  createRepo(root, 'api')
+
+  await waitForSessionReady(orcaPage)
+  await openFolderWorkspace(orcaPage, root, 'Nested Git In Parent Worktree')
+
+  await expect(repoRow(orcaPage, 'api')).toBeVisible({ timeout: 60_000 })
+})
+
 test('folder submodule menu initializes, updates, and syncs submodules', async ({
   orcaPage,
   registerPostElectronShutdownCleanup

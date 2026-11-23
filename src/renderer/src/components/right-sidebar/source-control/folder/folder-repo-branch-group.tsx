@@ -8,6 +8,7 @@ import { useUiLanguageRevision } from '@/i18n/use-ui-language-revision'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useGitHistoryCommitActions } from '../sync/use-git-history-commit-actions'
+import { GitGraphOpenButton } from '../sync/git-graph-open-button'
 import { useAppStore } from '@/store/index'
 import { FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY } from '../../../../../../shared/source-control/runtime/source-control-runtime-capabilities'
 import { useRuntimeTargetCapability } from './use-runtime-target-capability'
@@ -263,6 +264,7 @@ export function FolderRepoBranchGroup({
                 )}
               </TooltipContent>
             </Tooltip>
+            <GitGraphOpenButton worktreeId={owner.worktreeId} />
           </div>
         ) : null}
       </div>

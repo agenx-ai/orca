@@ -16545,7 +16545,25 @@
             "remoteAdded": "Remote {{name}} added.",
             "remoteRemoved": "Remote {{name}} removed.",
             "remoteFetched": "Fetched {{name}}.",
-            "remoteActionFailed": "Remote action failed."
+            "remoteActionFailed": "Remote action failed.",
+            "repositoryActions": "Repository actions",
+            "repositoryView": "Repository view",
+            "viewAutomatic": "Automatic",
+            "viewList": "List",
+            "viewTree": "Tree",
+            "fetchRepository": "Fetch",
+            "pullRepository": "Pull",
+            "pushRepository": "Push",
+            "revealRepository": "Reveal in Explorer",
+            "copyRepositoryPath": "Copy Path",
+            "excludeRepository": "Exclude Repository",
+            "repositoryPathCopied": "Repository path copied.",
+            "repositoryExcluded": "{{repo}} excluded.",
+            "repositoryFetched": "Fetched {{repo}}.",
+            "repositoryPulled": "Pulled {{repo}}.",
+            "repositoryPushed": "Pushed {{repo}}.",
+            "repositoryActionFailed": "Repository action failed.",
+            "hostDisconnected": "The host is disconnected. Reconnect to manage repositories."
           }
         }
       },

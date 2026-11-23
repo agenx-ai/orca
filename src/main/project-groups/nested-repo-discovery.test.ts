@@ -89,6 +89,27 @@ describe('scanNestedRepos', () => {
     expect(result.repos.map((repo) => repo.path)).toEqual(['/workspace/api'])
   })
 
+  it('scans children of a folder inside a parent work tree only for VS Code folder scans', async () => {
+    const directories = new Map([['/parent/monorepo', ['api']]])
+    const gitRepos = new Set(['/parent/monorepo/api'])
+    const filesystem = {
+      ...posixTestFilesystem({ directories, gitRepos }),
+      // Stands in for is-inside-work-tree: the selection itself is not a checkout.
+      isSelectedPathGitRepo: () => true
+    }
+
+    const imported = await scanNestedRepos({ path: '/parent/monorepo', filesystem })
+    expect(imported.selectedPathKind).toBe('git_repo')
+
+    const scanned = await scanNestedRepos({
+      path: '/parent/monorepo',
+      vsCodeDepth: true,
+      filesystem
+    })
+    expect(scanned.selectedPathKind).toBe('non_git_folder')
+    expect(scanned.repos.map((repo) => repo.path)).toEqual(['/parent/monorepo/api'])
+  })
+
   it('applies ignored folders, ignored repositories, and extra scan roots', async () => {
     const directories = new Map([
       ['/workspace', ['kept', 'ignored', 'vendor', 'custom-ignored', 'nested']],

@@ -111,7 +111,13 @@ export function useFolderReposScan(args: {
           target,
           folderWorktree,
           force,
-          ...(activeScanId ? { scanId: activeScanId } : {})
+          ...(activeScanId ? { scanId: activeScanId } : {}),
+          // Adopt a joined scan immediately, so Stop and progress track the scan actually running.
+          onScanId: (scanId) => {
+            if (token === requestToken.current && scanId !== activeScanId) {
+              activeScanId = beginScan(scanId)
+            }
+          }
         })
         if (loaded.scanId && loaded.scanId !== activeScanId) {
           // A reused in-flight scan registered its own id; track that one for progress and Stop.

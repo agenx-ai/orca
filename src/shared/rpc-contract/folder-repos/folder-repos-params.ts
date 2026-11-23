@@ -17,6 +17,11 @@ export const FolderReposSettings = z.object({
   folderWorktree: z.string().min(1, 'Missing folder selector')
 })
 
+export const FolderReposExclude = z.object({
+  folderWorktree: z.string().min(1, 'Missing folder selector'),
+  relativePath: z.string().min(1).max(4096)
+})
+
 export const FolderReposScanQuery = z.object({
   folderWorktree: z.string().min(1, 'Missing folder selector'),
   scanId: z.string().min(1).max(100)

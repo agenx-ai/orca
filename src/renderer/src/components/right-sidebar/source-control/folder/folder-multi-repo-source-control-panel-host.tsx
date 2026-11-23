@@ -2,14 +2,9 @@ import { useMemo } from 'react'
 import { useAppStore } from '@/store/index'
 import { useTranslate } from '@/i18n/use-translate'
 import { FOLDER_REPOS_RUNTIME_CAPABILITY } from '../../../../../../shared/source-control/runtime/source-control-runtime-capabilities'
-import {
-  selectCrossStoreFolderChildrenById,
-  selectSidebarLineageParentIdentities
-} from '@/store/slices/worktrees/metadata/cross-store-lineage-parents'
-import {
-  selectFolderWorkspaces,
-  selectWorktreesByRepo
-} from '@/store/workspaces/catalog/workspace-record-fields'
+import { selectSidebarChildrenByParentIdentity } from '@/store/slices/worktrees/metadata/cross-store-lineage-parents'
+import { useAppStoreWithHostStatuses } from '@/store/slices/runtime-status/views/use-runtime-status-view'
+import { selectFolderWorkspaces } from '@/store/workspaces/catalog/workspace-record-fields'
 import {
   folderWorkspaceRepoId,
   getFolderWorkspaceWorktree
@@ -26,11 +21,11 @@ export default function FolderMultiRepoSourceControlPanelHost(): React.JSX.Eleme
   const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
   const executionHostId = useAppStore((state) => state.activeWorkspaceExecutionHostId)
   const folderWorkspaces = useAppStore(selectFolderWorkspaces)
-  const worktreesByRepo = useAppStore(selectWorktreesByRepo)
+  const childrenByParentIdentity = useAppStoreWithHostStatuses(
+    selectSidebarChildrenByParentIdentity
+  )
   const workspaceLineageByChildKey = useAppStore((state) => state.workspaceLineageByChildKey)
   const worktreeLineageById = useAppStore((state) => state.worktreeLineageById)
-  const lineageParentIdentities = useAppStore(selectSidebarLineageParentIdentities)
-  const crossStoreChildrenByFolderId = useAppStore(selectCrossStoreFolderChildrenById)
   const resolution = useMemo(
     () =>
       getAttachedWorktreesForFolderWorkspace({
@@ -38,22 +33,18 @@ export default function FolderMultiRepoSourceControlPanelHost(): React.JSX.Eleme
         activeWorktreeId,
         executionHostId,
         folderWorkspaces,
-        worktreesByRepo,
+        childrenByParentIdentity,
         workspaceLineageByChildKey,
-        worktreeLineageById,
-        lineageParentIdentities,
-        crossStoreChildrenByFolderId
+        worktreeLineageById
       }),
     [
       activeWorkspaceKey,
       activeWorktreeId,
       executionHostId,
       folderWorkspaces,
-      worktreesByRepo,
+      childrenByParentIdentity,
       workspaceLineageByChildKey,
-      worktreeLineageById,
-      lineageParentIdentities,
-      crossStoreChildrenByFolderId
+      worktreeLineageById
     ]
   )
   const folder = resolution.folderWorkspace

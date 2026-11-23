@@ -171,7 +171,9 @@ export async function scanNestedRepos(args: {
     args.onProgress?.(buildResult('non_git_folder'))
   }
 
-  if (await filesystem.isSelectedPathGitRepo(args.path)) {
+  // Folder scans behave like VS Code subfolder detection: a folder inside a parent work tree still
+  // scans its children. The import flow keeps treating an inside-work-tree selection as one repo.
+  if (!args.vsCodeDepth && (await filesystem.isSelectedPathGitRepo(args.path))) {
     return buildResult('git_repo')
   }
   if (noteAbort()) {

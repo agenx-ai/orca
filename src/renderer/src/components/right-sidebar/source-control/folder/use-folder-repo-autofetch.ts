@@ -25,6 +25,7 @@ export function useFolderRepoAutofetch(
     if (autofetch === false || entries.length === 0) {
       return
     }
+    let cancelled = false
     let running = false
     const tick = (): void => {
       if (running) {
@@ -34,6 +35,9 @@ export function useFolderRepoAutofetch(
       void (async () => {
         try {
           for (const entry of entriesRef.current) {
+            if (cancelled) {
+              return
+            }
             const { scope } = entry
             const gitCopy = scope.gitCopy
             if (!gitCopy) {
@@ -45,16 +49,29 @@ export function useFolderRepoAutofetch(
               worktreePath: scope.worktree.path,
               ...(scope.repo.connectionId ? { connectionId: scope.repo.connectionId } : {})
             }
-            try {
-              if (autofetch === 'all') {
-                for (const remote of await listRuntimeGitRemotes(context)) {
-                  await fetchRuntimeGitRemote(context, remote.name)
-                }
-              } else {
-                await fetchRuntimeGit(context)
+            if (autofetch === 'all') {
+              let remotes: Awaited<ReturnType<typeof listRuntimeGitRemotes>>
+              try {
+                remotes = await listRuntimeGitRemotes(context)
+              } catch {
+                continue
               }
-            } catch {
-              // Offline or no upstream: keep the previous refs and retry next period.
+              for (const remote of remotes) {
+                if (cancelled) {
+                  return
+                }
+                try {
+                  await fetchRuntimeGitRemote(context, remote.name)
+                } catch {
+                  // One unreachable remote must not skip the remaining remotes or repos.
+                }
+              }
+            } else {
+              try {
+                await fetchRuntimeGit(context)
+              } catch {
+                // Offline or no upstream: keep the previous refs and retry next period.
+              }
             }
           }
         } finally {
@@ -62,13 +79,17 @@ export function useFolderRepoAutofetch(
         }
       })()
     }
-    return installWindowVisibilityInterval({
+    const stop = installWindowVisibilityInterval({
       run: tick,
       // Autofetch measures from mount, not from whenever the window becomes visible.
       runOnVisible: () => {},
       intervalMs: autofetchPeriod * 1000,
       slowWhileUnfocused: true
     })
+    return () => {
+      cancelled = true
+      stop()
+    }
     // entries is current through entriesRef; only its emptiness restarts the timer.
   }, [autofetch, autofetchPeriod, entries.length])
 }

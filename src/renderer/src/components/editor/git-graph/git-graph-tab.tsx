@@ -21,6 +21,7 @@ import { GitGraphFilter } from './git-graph-filter'
 import { loadMoreInView } from './git-graph-viewport-paging'
 import { GitGraphDetails } from './git-graph-details'
 import { GitGraphRefs, useGitGraphWorkspaces } from './git-graph-ref-menu'
+import { parseFolderNestedGitSelector } from '../../../../../shared/folder-workspaces/folder-nested-git'
 import { cn } from '@/lib/class-names'
 import { useIntlLocale, useTranslate } from '@/i18n/use-translate'
 
@@ -33,6 +34,7 @@ export function GitGraphTab({ worktreeId }: { worktreeId: string }) {
   const intlLocale = useIntlLocale()
   const history = useGitGraphHistory(worktreeId)
   const { result, scope, selectedId, revealId, controller, loading } = history
+  const nestedFolderPlacementId = parseFolderNestedGitSelector(worktreeId)?.folderSelector
   const commitActionSupport = useGitCommitActionsSupport(
     scope?.target ?? null,
     scope?.route.executionHostId ?? undefined
@@ -98,10 +100,16 @@ export function GitGraphTab({ worktreeId }: { worktreeId: string }) {
     worktreePath: scope?.worktree.path ?? null,
     activeRepoTarget: scope?.target ?? null,
     ownerConnectionId: scope?.connectionId,
-    resolveSplitTargetGroupId: sameGroup
+    resolveSplitTargetGroupId: sameGroup,
+    // Nested folder repos open their diffs on the folder workspace, like the graph tab itself.
+    ...(nestedFolderPlacementId ? { placementWorkspaceId: nestedFolderPlacementId } : {}),
+    ...(scope ? { runtimeEnvironmentId: scope.route.runtimeEnvironmentId } : {})
   })
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+    <div
+      data-testid="git-graph-tab"
+      className="flex h-full min-h-0 flex-col bg-background text-foreground"
+    >
       <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
         <GitGraphFilter
           worktreeId={worktreeId}

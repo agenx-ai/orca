@@ -101,6 +101,7 @@ test('git.autofetch fetches the default remote on the configured period', async 
   orcaPage,
   registerPostElectronShutdownCleanup
 }) => {
+  // Why: autofetch fires on a timer against a real local remote, so the test must outlast its period.
   test.setTimeout(240_000)
   const root = mkdtempSync(path.join(os.tmpdir(), 'orca-autofetch-'))
   const remoteRoot = mkdtempSync(path.join(os.tmpdir(), 'orca-autofetch-remote-'))
@@ -136,6 +137,7 @@ test('git.autofetch all fetches every remote', async ({
   orcaPage,
   registerPostElectronShutdownCleanup
 }) => {
+  // Why: autofetch fires on a timer against a real local remote, so the test must outlast its period.
   test.setTimeout(240_000)
   const root = mkdtempSync(path.join(os.tmpdir(), 'orca-autofetch-all-'))
   const remoteRoot = mkdtempSync(path.join(os.tmpdir(), 'orca-autofetch-all-remote-'))

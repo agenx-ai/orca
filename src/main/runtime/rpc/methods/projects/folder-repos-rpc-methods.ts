@@ -2,6 +2,7 @@ import { lstat, realpath } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { defineMethod } from '../../core'
 import {
+  FolderReposExclude,
   FolderReposScan,
   FolderReposScanQuery,
   FolderReposSettings
@@ -19,6 +20,7 @@ import {
   readFolderRepoScanProgress
 } from './folder-repos-scan-registry'
 import { scanNestedRepos } from '../../../../project-groups/nested-repo-discovery'
+import { addFolderIgnoredRepository } from '../../../../project-groups/folder-git-settings-write'
 import {
   collectSubmoduleRepos,
   collectWorktreeRepos
@@ -138,6 +140,16 @@ export const FOLDER_REPO_METHODS = [
     handler: async (params, { runtime }): Promise<FolderReposSettingsResult> => {
       const { settings } = await readSettings(params.folderWorktree, runtime)
       return { fingerprint: folderGitSettingsFingerprint(settings), error: settings.invalid }
+    }
+  }),
+  defineMethod({
+    name: 'folderRepos.exclude',
+    permission: 'workspace',
+    params: FolderReposExclude,
+    handler: async (params, { runtime }): Promise<{ relativePath: string }> => {
+      const target = await runtime.resolveRuntimeFileTarget(params.folderWorktree)
+      const folderPath = await realpath(target.worktree.path)
+      return { relativePath: await addFolderIgnoredRepository(folderPath, params.relativePath) }
     }
   }),
   defineMethod({

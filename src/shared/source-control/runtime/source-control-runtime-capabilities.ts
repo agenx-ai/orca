@@ -30,6 +30,8 @@ export const ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY =
   'git.antigravity-configured-model.v1' as const
 // Multi-repository folder projects: scan panel and nested branch operations.
 export const FOLDER_REPOS_RUNTIME_CAPABILITY = 'folder.repos.v1' as const
+// Repository exclusion writes git.ignoredRepositories into the folder's .vscode/settings.json.
+export const FOLDER_REPO_EXCLUDE_RUNTIME_CAPABILITY = 'folder.repos.exclude.v1' as const
 export const FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY = 'git.folder-compare.v1' as const
 // Submodule actions run as pollable server tasks, so recursive updates outlive one RPC deadline.
 export const GIT_SUBMODULE_TASK_RUNTIME_CAPABILITY = 'git.submodule-task.v1' as const
@@ -54,6 +56,7 @@ export const SOURCE_CONTROL_RUNTIME_CAPABILITIES = [
   GITLAB_READY_FOR_REVIEW_RUNTIME_CAPABILITY,
   GITLAB_MR_INVOLVEMENT_RUNTIME_CAPABILITY,
   FOLDER_REPOS_RUNTIME_CAPABILITY,
+  FOLDER_REPO_EXCLUDE_RUNTIME_CAPABILITY,
   FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY,
   GIT_SUBMODULE_TASK_RUNTIME_CAPABILITY,
   GIT_STASH_RUNTIME_CAPABILITY,

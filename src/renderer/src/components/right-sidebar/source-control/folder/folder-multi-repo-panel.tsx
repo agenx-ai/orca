@@ -17,8 +17,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { SourceControlPanelReady } from '../panel/panel-ready'
 import { useSourceControlPanelModel } from '../panel/use-panel-model'
 import { SourceControlScopeProvider } from '../panel/worktree-scope'
-import { FolderRepositoryTree } from './folder-repository-tree'
+import { FolderRepositoryTree, type FolderRepoViewMode } from './folder-repository-tree'
 import { FolderRepoBranchesSection } from './folder-repo-branches'
+import { FolderRepoViewMenu } from './folder-repo-view-menu'
 import { FolderSubmoduleActionsMenu } from './folder-submodule-actions-menu'
 import { folderNestedRepoScope } from './folder-nested-repo-scope'
 import { FolderStashesSection } from './folder-stashes'
@@ -26,6 +27,8 @@ import { FolderTagsSection } from './folder-tags'
 import { FolderRemotesSection } from './folder-remotes'
 import { SectionHeader } from './folder-section-header'
 import { folderReposRootKey } from './folder-repos-cache'
+import { readFolderRepoViewMode, writeFolderRepoViewMode } from './folder-repo-view-cache'
+import { useFolderRepoActions, useFolderReposDisconnected } from './use-folder-repo-actions'
 import {
   readFolderRepoSelection,
   rememberFolderRepoSelection,
@@ -151,8 +154,39 @@ function FolderMultiRepoContent({
     owner ? (state.gitStatusByWorktree[owner.worktreeId]?.length ?? 0) : 0
   )
 
+  const [viewMode, setViewMode] = useState<FolderRepoViewMode>(() =>
+    readFolderRepoViewMode(rootKey)
+  )
+  const changeViewMode = (mode: FolderRepoViewMode): void => {
+    writeFolderRepoViewMode(rootKey, mode)
+    setViewMode(mode)
+  }
+
+  const disconnected = useFolderReposDisconnected(target, folderRepo.connectionId ?? null)
+  const { busyRepo, excludeSupported, runRepoAction } = useFolderRepoActions({
+    target,
+    folderSelector,
+    connectionId: folderRepo.connectionId ?? null,
+    repoScopes,
+    rescan,
+    refreshStatus: refreshNestedRepoStatus,
+    onExcluded: (relativePath) =>
+      setRequestedPath((current) => (current === relativePath ? null : current))
+  })
+
   return (
     <div className="scrollbar-sleek flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+      {disconnected ? (
+        <div
+          data-testid="folder-repos-disconnected"
+          className="shrink-0 border-b border-status-warning-border bg-status-warning-background px-3 py-2 text-xs text-status-warning-text"
+        >
+          {t(
+            'auto.components.right.sidebar.FolderRepoScm.hostDisconnected',
+            'The host is disconnected. Reconnect to manage repositories.'
+          )}
+        </div>
+      ) : null}
       <section className="flex max-h-56 min-h-0 shrink-0 flex-col border-b border-border">
         <SectionHeader
           title={t('auto.components.right.sidebar.FolderRepoScm.repositories', 'Repositories')}
@@ -164,26 +198,29 @@ function FolderMultiRepoContent({
               : undefined
           }
           actions={
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-6"
-                  onClick={rescan}
-                  disabled={!target || scanning}
-                  aria-label={t(
-                    'auto.components.right.sidebar.FolderRepoScm.rescan',
-                    'Rescan repositories'
-                  )}
-                >
-                  <RefreshCw className={cn('size-3.5', scanning && 'animate-spin')} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t('auto.components.right.sidebar.FolderRepoScm.rescan', 'Rescan repositories')}
-              </TooltipContent>
-            </Tooltip>
+            <>
+              <FolderRepoViewMenu viewMode={viewMode} onChange={changeViewMode} />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-6"
+                    onClick={rescan}
+                    disabled={!target || scanning || disconnected}
+                    aria-label={t(
+                      'auto.components.right.sidebar.FolderRepoScm.rescan',
+                      'Rescan repositories'
+                    )}
+                  >
+                    <RefreshCw className={cn('size-3.5', scanning && 'animate-spin')} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('auto.components.right.sidebar.FolderRepoScm.rescan', 'Rescan repositories')}
+                </TooltipContent>
+              </Tooltip>
+            </>
           }
         />
         <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
@@ -230,7 +267,17 @@ function FolderMultiRepoContent({
               )}
             </div>
           ) : (
-            <FolderRepositoryTree repos={repos} selectedPath={selectedPath} onSelect={selectRepo} />
+            <FolderRepositoryTree
+              rootKey={rootKey}
+              repos={repos}
+              selectedPath={selectedPath}
+              onSelect={selectRepo}
+              viewMode={viewMode}
+              onAction={runRepoAction}
+              actionsDisabled={disconnected || busyRepo !== null}
+              busyPath={busyRepo}
+              excludeSupported={excludeSupported}
+            />
           )}
           {result && (stopped || result.stopped || result.truncated || result.timedOut) ? (
             <div className="px-3 pb-2 text-[11px] text-status-warning-text">
@@ -269,6 +316,7 @@ function FolderMultiRepoContent({
           actions={
             owner && target && selectedRepo?.hasSubmodules ? (
               <FolderSubmoduleActionsMenu
+                key={owner.worktreeId}
                 target={target}
                 worktreeId={owner.worktreeId}
                 onChanged={rescan}

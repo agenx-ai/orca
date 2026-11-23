@@ -79,6 +79,8 @@ export async function loadFolderRepos(args: {
   force?: boolean
   /** Lets the caller poll progress and cancel this scan from the runtime. */
   scanId?: string
+  /** Fires as soon as the scan id is known, including when this call joined another in-flight scan. */
+  onScanId?: (scanId: string) => void
 }): Promise<{ result: FolderNestedRepoScanResult; scanId: string | null }> {
   const readFingerprint = async (): Promise<string | null> =>
     getFolderReposSettings(args.target, args.folderWorktree).then(
@@ -93,6 +95,9 @@ export async function loadFolderRepos(args: {
     fingerprint !== null &&
     (await existing.fingerprint) === fingerprint
   ) {
+    if (existing.scanId) {
+      args.onScanId?.(existing.scanId)
+    }
     return { result: await existing.promise, scanId: existing.scanId }
   }
   const sequence = ++requestSequence
