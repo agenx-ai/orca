@@ -123,14 +123,7 @@ const devChannelBuildVersion = isHourlyChannel
     : isAdhocChannel
       ? process.env.ORCA_ADHOC_BUILD_VERSION
       : undefined
-// Separate dev-channel repos: 24 hourly tags/day would evict stable/RC from the ten-entry release feed; isolate adhoc/daily from hourly subscribers too.
-const devChannelRepo = isHourlyChannel
-  ? 'orca-hourly'
-  : isDailyChannel
-    ? 'orca-daily'
-    : isAdhocChannel
-      ? 'orca-adhoc'
-      : null
+// This fork publishes every channel to one update feed (agenx-ai/orca), so no per-channel repo routing remains.
 const appId = 'com.stablyai.orca'
 const featureWallResources = {
   from: 'resources/onboarding/feature-wall',
@@ -620,14 +613,13 @@ module.exports = {
   },
   win: {
     executableName: 'Orca',
-    // SignPath signs Windows installers after packaging, so set release publisherName explicitly.
-    // Unsigned dev channels omit it or updater signature checks reject dev updates and return to stable.
+    // This fork publishes unsigned builds, so every channel omits publisherName and skips
+    // the updater signature check; otherwise updates are rejected and fall back to stable.
     // Sign hook signs nothing: it relays transient NSIS uninstaller files to CI SignPath; unset relay env leaves local/dev builds inert.
     signtoolOptions: {
-      sign: signWindowsUninstallerViaSignPath,
-      ...(isWinDevChannel ? {} : { publisherName: 'SignPath Foundation' })
+      sign: signWindowsUninstallerViaSignPath
     },
-    ...(isWinDevChannel ? { verifyUpdateCodeSignature: false } : {}),
+    verifyUpdateCodeSignature: false,
     extraResources: [
       ...commonExtraResources,
       ...windowsRuntimeResources,
@@ -855,10 +847,12 @@ module.exports = {
   npmRebuild: true,
   publish: {
     provider: 'github',
-    owner: 'stablyai',
-    repo: devChannelRepo ?? 'orca',
-    // Keep main-repo releases draft until release-cut verifies all assets; early --publish always would expose missing Windows installers.
-    releaseType: devChannelRepo ? 'prerelease' : 'draft'
+    // The fork owns its update feed: clients built here must install newer builds from
+    // agenx-ai/orca only, never from the upstream stablyai/orca feed.
+    owner: 'agenx-ai',
+    repo: 'orca',
+    // Published like a normal release so public clients resolve it through releases/latest.
+    releaseType: 'release'
   }
 }
 

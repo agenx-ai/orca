@@ -18,13 +18,13 @@ export const RELEASE_CHANNEL_LABELS: Readonly<Record<ReleaseChannel, string>> = 
   adhoc: 'Adhoc'
 }
 
-/** Keep dev tags out of the 10-entry main releases feed, where hourlies would evict stable/RC updates. */
-export const HOURLY_RELEASE_REPO = 'stablyai/orca-hourly'
-export const DAILY_RELEASE_REPO = 'stablyai/orca-daily'
-export const ADHOC_RELEASE_REPO = 'stablyai/orca-adhoc'
-export const MAIN_RELEASE_REPO = 'stablyai/orca'
+/** This fork publishes every release channel to one repository. */
+export const MAIN_RELEASE_REPO = 'agenx-ai/orca'
+export const HOURLY_RELEASE_REPO = MAIN_RELEASE_REPO
+export const DAILY_RELEASE_REPO = MAIN_RELEASE_REPO
+export const ADHOC_RELEASE_REPO = MAIN_RELEASE_REPO
 
-/** The dev channels, each published to its own repo rather than the main one. */
+/** The dev channels; this fork publishes them to the main repository, but they remain distinct channels. */
 const DEDICATED_REPO_CHANNELS = ['hourly', 'daily', 'adhoc'] as const
 
 export type DedicatedRepoChannel = (typeof DEDICATED_REPO_CHANNELS)[number]
