@@ -127,6 +127,7 @@ test('folder submodule menu initializes, updates, and syncs submodules', async (
   orcaPage,
   registerPostElectronShutdownCleanup
 }) => {
+  // Why: real Git submodule init, update, and sync against a local remote need headroom on CI.
   test.setTimeout(240_000)
   const root = mkdtempSync(path.join(os.tmpdir(), 'orca-nested-git-submodule-'))
   registerPostElectronShutdownCleanup(async () => rmSync(root, { recursive: true, force: true }))
@@ -192,6 +193,7 @@ test('folder branches open commit diffs, page history, compare, and check out', 
   orcaPage,
   registerPostElectronShutdownCleanup
 }) => {
+  // Why: covers commit history paging, compare, and checkout across two local repositories.
   test.setTimeout(300_000)
   const root = mkdtempSync(path.join(os.tmpdir(), 'orca-nested-git-branches-'))
   const remoteRoot = mkdtempSync(path.join(os.tmpdir(), 'orca-nested-git-branches-remote-'))

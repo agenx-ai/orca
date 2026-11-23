@@ -9,6 +9,7 @@ import type { SourceControlWorktreeContext } from '../listing/use-worktree-conte
 import type { SourceControlHostedReviewState } from './use-hosted-review-state'
 import type { SourceControlLinkedReviews } from './use-linked-reviews'
 import type { SourceControlHostedReviewProviderHint } from './use-hosted-review-provider-hint'
+import { isFolderNestedRepoId } from '../../../../../../shared/folder-workspaces/folder-nested-git'
 
 export function useSourceControlHostedReviewEligibility({
   activeRepoConnectionId,
@@ -89,6 +90,7 @@ export function useSourceControlHostedReviewEligibility({
       !activeRepoId ||
       !activeRepoPath ||
       isFolder ||
+      isFolderNestedRepoId(activeRepoId) ||
       !branchName ||
       !activeWorktreeId
     ) {

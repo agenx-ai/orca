@@ -14,6 +14,7 @@ async function makeTempRoot(): Promise<string> {
 }
 
 function rootWorktree(path: string): ResolvedWorktree {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: target resolution only reads these worktree identity fields.
   return {
     id: 'folder:test',
     repoId: 'folder',

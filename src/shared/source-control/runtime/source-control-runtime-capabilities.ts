@@ -28,6 +28,17 @@ export const GITLAB_MR_INVOLVEMENT_UPDATE_REQUIRED_MESSAGE =
 // Commit-message generation: the host plans Antigravity with the model the user configured.
 export const ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY =
   'git.antigravity-configured-model.v1' as const
+// Multi-repository folder projects: scan panel and nested branch operations.
+export const FOLDER_REPOS_RUNTIME_CAPABILITY = 'folder.repos.v1' as const
+export const FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY = 'git.folder-compare.v1' as const
+// Submodule actions run as pollable server tasks, so recursive updates outlive one RPC deadline.
+export const GIT_SUBMODULE_TASK_RUNTIME_CAPABILITY = 'git.submodule-task.v1' as const
+// Stash list/apply/pop/drop; older hosts have no stash RPCs.
+export const GIT_STASH_RUNTIME_CAPABILITY = 'git.stash.v1' as const
+// Tag list/create/delete; older hosts have no tag RPCs.
+export const GIT_TAGS_RUNTIME_CAPABILITY = 'git.tags.v1' as const
+// Remote list/add/remove/fetch; older hosts have no remote management RPCs.
+export const GIT_REMOTES_RUNTIME_CAPABILITY = 'git.remotes.v1' as const
 
 export const SOURCE_CONTROL_RUNTIME_CAPABILITIES = [
   GIT_HISTORY_REFS_CAPABILITY,
@@ -41,5 +52,11 @@ export const SOURCE_CONTROL_RUNTIME_CAPABILITIES = [
   MOBILE_GITHUB_MARK_PR_READY_RUNTIME_CAPABILITY,
   MOBILE_GITHUB_MARK_PR_DRAFT_RUNTIME_CAPABILITY,
   GITLAB_READY_FOR_REVIEW_RUNTIME_CAPABILITY,
-  GITLAB_MR_INVOLVEMENT_RUNTIME_CAPABILITY
+  GITLAB_MR_INVOLVEMENT_RUNTIME_CAPABILITY,
+  FOLDER_REPOS_RUNTIME_CAPABILITY,
+  FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY,
+  GIT_SUBMODULE_TASK_RUNTIME_CAPABILITY,
+  GIT_STASH_RUNTIME_CAPABILITY,
+  GIT_TAGS_RUNTIME_CAPABILITY,
+  GIT_REMOTES_RUNTIME_CAPABILITY
 ] as const

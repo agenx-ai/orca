@@ -132,6 +132,10 @@ export function isWslDirectGitReadCommand(args: readonly string[]): boolean {
     return false
   }
 
+  if (subcommand === 'stash') {
+    return rest[0] === 'list'
+  }
+
   const readActions = READ_ACTION_SUBCOMMANDS[subcommand]
   if (readActions) {
     const action = rest.find((arg) => !arg.startsWith('-'))

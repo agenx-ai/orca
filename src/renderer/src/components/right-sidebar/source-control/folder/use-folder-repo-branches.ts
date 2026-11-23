@@ -33,7 +33,9 @@ export function useFolderRepoBranches(args: {
   checkout: (branch: GitHistoryItemRef) => Promise<void>
   checkoutBranchId: string | null
   compare: (branch: GitHistoryItemRef, baseRef: string) => Promise<void>
+  compareRefs: (baseRef: string, headRef: string) => Promise<void>
   comparingBranchId: string | null
+  comparingRefs: boolean
 } {
   const worktreeId = args.owner?.worktreeId ?? null
   const worktreePath = args.owner?.worktree.path ?? null
@@ -57,6 +59,7 @@ export function useFolderRepoBranches(args: {
   const [refreshRevision, setRefreshRevision] = useState(0)
   const [checkoutBranchId, setCheckoutBranchId] = useState<string | null>(null)
   const [comparingBranchId, setComparingBranchId] = useState<string | null>(null)
+  const [comparingRefs, setComparingRefs] = useState(false)
   const generation = useRef(0)
 
   useEffect(() => {
@@ -133,38 +136,59 @@ export function useFolderRepoBranches(args: {
     [context, refresh]
   )
 
-  const compare = useCallback(
-    async (branch: GitHistoryItemRef, baseRef: string): Promise<void> => {
+  const openCompare = useCallback(
+    async (baseRef: string, headRef: string): Promise<void> => {
       if (!context || !worktreeId || !worktreePath) {
         return
       }
       const owner = args.owner
+      const result = await getRuntimeGitBranchCompare(context, baseRef, 'interactive', headRef)
+      if (result.summary.status !== 'ready') {
+        throw new Error(result.summary.errorMessage ?? 'Could not compare branches')
+      }
+      // Open from this result's own entries; the shared Changes compare state keeps its own base.
+      useAppStore.getState().openBranchAllDiffs(
+        worktreeId,
+        worktreePath,
+        result.summary,
+        undefined,
+        {
+          placementWorkspaceId: owner?.placementWorkspaceId,
+          executionHostId: owner?.executionHostId,
+          runtimeEnvironmentId: owner?.worktree.runtimeOwnerEnvironmentId
+        },
+        result.entries
+      )
+    },
+    [args.owner, context, worktreeId, worktreePath]
+  )
+
+  const compare = useCallback(
+    async (branch: GitHistoryItemRef, baseRef: string): Promise<void> => {
       setComparingBranchId(branch.id)
       try {
-        const result = await getRuntimeGitBranchCompare(context, baseRef, 'interactive', branch.id)
-        if (result.summary.status !== 'ready') {
-          throw new Error(result.summary.errorMessage ?? 'Could not compare branches')
-        }
-        // Open from this result's own entries; the shared Changes compare state keeps its own base.
-        useAppStore.getState().openBranchAllDiffs(
-          worktreeId,
-          worktreePath,
-          result.summary,
-          undefined,
-          {
-            placementWorkspaceId: owner?.placementWorkspaceId,
-            executionHostId: owner?.executionHostId,
-            runtimeEnvironmentId: owner?.worktree.runtimeOwnerEnvironmentId
-          },
-          result.entries
-        )
+        await openCompare(baseRef, branch.id)
       } catch (error) {
         toast.error(branchErrorMessage(error, 'Failed to compare branches'))
       } finally {
         setComparingBranchId(null)
       }
     },
-    [args.owner, context, worktreeId, worktreePath]
+    [openCompare]
+  )
+
+  const compareRefs = useCallback(
+    async (baseRef: string, headRef: string): Promise<void> => {
+      setComparingRefs(true)
+      try {
+        await openCompare(baseRef, headRef)
+      } catch (error) {
+        toast.error(branchErrorMessage(error, 'Failed to compare branches'))
+      } finally {
+        setComparingRefs(false)
+      }
+    },
+    [openCompare]
   )
 
   return {
@@ -176,6 +200,8 @@ export function useFolderRepoBranches(args: {
     checkout,
     checkoutBranchId,
     compare,
-    comparingBranchId
+    compareRefs,
+    comparingBranchId,
+    comparingRefs
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { watchRuntimeRepoBaseRefDefault } from '@/runtime/source-control/references/runtime-repo-client'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host/execution-host'
+import { isFolderNestedRepoId } from '../../../../../../shared/folder-workspaces/folder-nested-git'
 
 export function useSourceControlBaseRefDefault({
   activeRepoConnectionId,
@@ -18,7 +19,13 @@ export function useSourceControlBaseRefDefault({
   // Unknown bases must not trigger comparison against a fabricated origin/main.
   const [defaultBaseRef, setDefaultBaseRef] = useState<string | null>(null)
   useEffect(() => {
-    if (!isBranchVisible || !activeRepoId || !activeRepoExecutionHostId || isFolder) {
+    if (
+      !isBranchVisible ||
+      !activeRepoId ||
+      !activeRepoExecutionHostId ||
+      isFolder ||
+      isFolderNestedRepoId(activeRepoId)
+    ) {
       return
     }
     // Drop the previous repo’s default while loading to prevent transient invalid-base comparisons.

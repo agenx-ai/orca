@@ -38,6 +38,19 @@ import { getStagedCommitContext } from '../../git/source-control/mutations/stage
 import { getStatus } from '../../git/source-control/status/status-read'
 import { getSubmoduleStatus } from '../../git/source-control/submodules/submodule-status'
 import { runSubmoduleAction } from '../../git/source-control/submodules/submodule-actions'
+import {
+  applyGitStash,
+  createGitStash,
+  dropGitStash,
+  listGitStashes
+} from '../../git/source-control/stash/git-stash'
+import { createGitTag, deleteGitTag, listGitTags } from '../../git/source-control/tags/git-tag'
+import {
+  addGitRemote,
+  fetchGitRemote,
+  listGitRemotes,
+  removeGitRemote
+} from '../../git/remotes/remote-management'
 import { getUpstreamStatus } from '../../git/source-control/upstream/upstream'
 import { listWorktrees } from '../../git/worktrees/catalog/worktree-scan-cache'
 import type { IGitProvider } from './provider-contract'
@@ -82,8 +95,26 @@ export function createLocalGitProvider(options: LocalGitProviderOptions = {}): L
           : {}),
         ...(area === 'staged' ? { staged: true } : {})
       }),
-    runSubmoduleAction: (worktreePath, action) =>
-      runSubmoduleAction(worktreePath, action, interactive),
+    runSubmoduleAction: (worktreePath, action, actionOptions) =>
+      runSubmoduleAction(worktreePath, action, {
+        ...interactive,
+        ...(actionOptions?.signal ? { signal: actionOptions.signal } : {}),
+        ...(actionOptions?.onStderr ? { onStderr: actionOptions.onStderr } : {})
+      }),
+    listStashes: (worktreePath) => listGitStashes(worktreePath, base),
+    createStash: (worktreePath, stashOptions) =>
+      createGitStash(worktreePath, stashOptions ?? {}, interactive),
+    applyStash: (worktreePath, index, applyOptions) =>
+      applyGitStash(worktreePath, index, applyOptions?.pop === true, interactive),
+    dropStash: (worktreePath, index) => dropGitStash(worktreePath, index, interactive),
+    listTags: (worktreePath) => listGitTags(worktreePath, base),
+    createTag: (worktreePath, name, message) =>
+      createGitTag(worktreePath, name, message, interactive),
+    deleteTag: (worktreePath, name) => deleteGitTag(worktreePath, name, interactive),
+    listRemotes: (worktreePath) => listGitRemotes(worktreePath, base),
+    addRemote: (worktreePath, name, url) => addGitRemote(worktreePath, name, url, interactive),
+    removeRemote: (worktreePath, name) => removeGitRemote(worktreePath, name, interactive),
+    fetchNamedRemote: (worktreePath, name) => fetchGitRemote(worktreePath, name, interactive),
     checkIgnoredPaths: (worktreePath, relativePaths) =>
       checkIgnoredPaths(worktreePath, relativePaths, interactive),
     getHistoryRefs: (worktreePath, query) => getHistoryRefs(worktreePath, query, interactive),

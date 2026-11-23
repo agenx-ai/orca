@@ -6,6 +6,7 @@ import { useSourceControlWatchConsumer } from '@/components/editor/external-chan
 import { loadFolderRepos, peekFolderRepos, updateFolderRepoBranch } from './folder-repos-cache'
 import { useFolderReposScanProgress } from './use-folder-repos-scan-progress'
 import { useFolderReposWatch } from './use-folder-repos-watch'
+import { installWindowVisibilityInterval } from '@/lib/window-activity/window-visibility-interval'
 
 const selectedPathByRoot = new Map<string, string>()
 const SETTINGS_RECHECK_MS = 5_000
@@ -155,6 +156,7 @@ export function useFolderReposScan(args: {
   )
   runRef.current = run
 
+  // oxlint-disable-next-line react-doctor/no-derived-state-effect -- Why: resets presentation state when the folder root changes and seeds it from the shared cache.
   useEffect(() => {
     setSettingsVerified(false)
     const cached = rootKey ? peekFolderRepos(rootKey) : undefined
@@ -224,11 +226,10 @@ export function useFolderReposScan(args: {
           checking = false
         })
     }
-    check()
-    const timer = window.setInterval(check, SETTINGS_RECHECK_MS)
+    const stop = installWindowVisibilityInterval({ run: check, intervalMs: SETTINGS_RECHECK_MS })
     return () => {
       closed = true
-      window.clearInterval(timer)
+      stop()
     }
   }, [enabled, folderWorktree, rootKey, run, target])
 

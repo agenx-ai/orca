@@ -33,6 +33,9 @@ import type { RuntimeGitLocalBranches } from '../../../shared/worktree/catalog/r
 import type { GitAdmissionTier } from '../../../shared/rpc-contract/source-control/git-admission-tier-params'
 import type { GitBlameResult } from '../../../shared/git/blame/git-blame-types'
 import type { GitSubmoduleAction } from '../../../shared/git/submodules/git-submodule-action'
+import type { GitStashCreateOptions, GitStashEntry } from '../../../shared/git/stash/git-stash'
+import type { GitTagEntry } from '../../../shared/git/tags/git-tag'
+import type { GitRemoteEntry } from '../../../shared/git/remotes/git-remote-entry'
 
 export type IGitProvider = {
   getStatus(worktreePath: string, options?: GitProviderStatusOptions): Promise<GitStatusResult>
@@ -42,7 +45,22 @@ export type IGitProvider = {
     area?: GitStagingArea,
     options?: { ignoreSubmodules?: 'all' | 'dirty' | 'untracked' }
   ): Promise<GitStatusResult>
-  runSubmoduleAction(worktreePath: string, action: GitSubmoduleAction): Promise<void>
+  runSubmoduleAction(
+    worktreePath: string,
+    action: GitSubmoduleAction,
+    options?: { signal?: AbortSignal; onStderr?: (chunk: string) => void }
+  ): Promise<void>
+  listStashes(worktreePath: string): Promise<GitStashEntry[]>
+  createStash(worktreePath: string, options?: GitStashCreateOptions): Promise<void>
+  applyStash(worktreePath: string, index: number, options?: { pop?: boolean }): Promise<void>
+  dropStash(worktreePath: string, index: number): Promise<void>
+  listTags(worktreePath: string): Promise<GitTagEntry[]>
+  createTag(worktreePath: string, name: string, message?: string): Promise<void>
+  deleteTag(worktreePath: string, name: string): Promise<void>
+  listRemotes(worktreePath: string): Promise<GitRemoteEntry[]>
+  addRemote(worktreePath: string, name: string, url: string): Promise<void>
+  removeRemote(worktreePath: string, name: string): Promise<void>
+  fetchNamedRemote(worktreePath: string, name: string): Promise<void>
   checkIgnoredPaths(worktreePath: string, relativePaths: string[]): Promise<string[]>
   getHistoryRefs(worktreePath: string, query?: string): Promise<GitHistoryItemRef[]>
   getHistory(worktreePath: string, options?: GitHistoryOptions): Promise<GitHistoryResult>

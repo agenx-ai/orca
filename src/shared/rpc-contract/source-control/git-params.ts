@@ -46,6 +46,11 @@ export const GitSubmoduleActionParams = WorktreeSelector.extend({
   action: z.enum(GIT_SUBMODULE_ACTIONS)
 })
 
+/** Poll/cancel a task started by git.submoduleActionStart. */
+export const GitSubmoduleTaskParams = WorktreeSelector.extend({
+  taskId: z.string().min(1)
+})
+
 export const GitFilePath = WorktreeSelector.extend({
   filePath: z
     .unknown()

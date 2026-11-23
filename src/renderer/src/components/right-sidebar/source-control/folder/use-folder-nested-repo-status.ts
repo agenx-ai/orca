@@ -1,5 +1,9 @@
 import { useCallback, useEffect } from 'react'
 import { useAppStore } from '@/store/index'
+import {
+  installWindowVisibilityInterval,
+  isWindowVisible
+} from '@/lib/window-activity/window-visibility-interval'
 import { refreshGitStatusForWorktree } from '../sync/git-status-refresh'
 import type { SourceControlScope } from '../panel/worktree-scope'
 
@@ -12,7 +16,7 @@ const STATUS_POLL_MS = 15_000
 export function useFolderNestedRepoStatus(
   owner: SourceControlScope | null,
   autorefresh = true
-): void {
+): (signal?: AbortSignal) => Promise<void> {
   const gitCopy = owner?.gitCopy
   const worktreeId = owner?.worktreeId
   const worktreePath = owner?.worktree.path
@@ -52,19 +56,17 @@ export function useFolderNestedRepoStatus(
       })
     }
     // A hidden window still gets the post-selection read; only recurring polls wait for visibility.
-    refreshNow()
-    const timer = autorefresh
-      ? window.setInterval(() => {
-          if (document.visibilityState === 'visible') {
-            refreshNow()
-          }
-        }, STATUS_POLL_MS)
+    if (!autorefresh || !isWindowVisible()) {
+      refreshNow()
+    }
+    const stop = autorefresh
+      ? installWindowVisibilityInterval({ run: refreshNow, intervalMs: STATUS_POLL_MS })
       : null
     return () => {
       controller.abort()
-      if (timer !== null) {
-        window.clearInterval(timer)
-      }
+      stop?.()
     }
   }, [autorefresh, gitCopy, refresh, worktreeId])
+
+  return refresh
 }

@@ -25,6 +25,14 @@ export const GIT_HISTORY_MAX_LIMIT = 200
 
 export type GitHistoryRefCategory = 'branches' | 'remote branches' | 'tags' | 'commits'
 
+export type GitBranchUpstream = {
+  name: string
+  ahead: number
+  behind: number
+  /** The configured upstream no longer exists. */
+  gone?: boolean
+}
+
 export type GitHistoryItemRef = {
   id: string
   name: string
@@ -33,6 +41,8 @@ export type GitHistoryItemRef = {
   worktreePath?: string
   description?: string
   color?: GitHistoryGraphColorId
+  /** Branch rows only; absent when the host does not report tracking. */
+  upstream?: GitBranchUpstream
 }
 
 export type GitHistoryItemStatistics = {

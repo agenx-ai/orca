@@ -34,6 +34,10 @@ export async function runSubmoduleAction(
       admissionTier: 'interactive'
     })
   } catch (error) {
+    // The task registry distinguishes a user cancel from a failed action.
+    if (options.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw error
+    }
     throw new Error(submoduleActionErrorMessage(error), { cause: error })
   }
 }

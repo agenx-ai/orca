@@ -12,6 +12,17 @@ type RuntimeGitCommandName =
   | 'abortRuntimeGitMerge'
   | 'abortRuntimeGitRebase'
   | 'runRuntimeGitSubmoduleAction'
+  | 'listRuntimeGitStashes'
+  | 'createRuntimeGitStash'
+  | 'applyRuntimeGitStash'
+  | 'dropRuntimeGitStash'
+  | 'listRuntimeGitTags'
+  | 'createRuntimeGitTag'
+  | 'deleteRuntimeGitTag'
+  | 'listRuntimeGitRemotes'
+  | 'addRuntimeGitRemote'
+  | 'removeRuntimeGitRemote'
+  | 'fetchRuntimeGitRemote'
   | 'switchRuntimeGitBranch'
   | 'checkoutRuntimeGitBranch'
   | 'listRuntimeGitLocalBranches'
@@ -69,6 +80,17 @@ export function installRuntimeGitCommandSurface(
     abortRuntimeGitMerge: commands.abortRuntimeGitMerge.bind(commands),
     abortRuntimeGitRebase: commands.abortRuntimeGitRebase.bind(commands),
     runRuntimeGitSubmoduleAction: commands.runRuntimeGitSubmoduleAction.bind(commands),
+    listRuntimeGitStashes: commands.listRuntimeGitStashes.bind(commands),
+    createRuntimeGitStash: commands.createRuntimeGitStash.bind(commands),
+    applyRuntimeGitStash: commands.applyRuntimeGitStash.bind(commands),
+    dropRuntimeGitStash: commands.dropRuntimeGitStash.bind(commands),
+    listRuntimeGitTags: commands.listRuntimeGitTags.bind(commands),
+    createRuntimeGitTag: commands.createRuntimeGitTag.bind(commands),
+    deleteRuntimeGitTag: commands.deleteRuntimeGitTag.bind(commands),
+    listRuntimeGitRemotes: commands.listRuntimeGitRemotes.bind(commands),
+    addRuntimeGitRemote: commands.addRuntimeGitRemote.bind(commands),
+    removeRuntimeGitRemote: commands.removeRuntimeGitRemote.bind(commands),
+    fetchRuntimeGitRemote: commands.fetchRuntimeGitRemote.bind(commands),
     switchRuntimeGitBranch: commands.switchRuntimeGitBranch.bind(commands),
     checkoutRuntimeGitBranch: commands.checkoutRuntimeGitBranch.bind(commands),
     listRuntimeGitLocalBranches: commands.listRuntimeGitLocalBranches.bind(commands),

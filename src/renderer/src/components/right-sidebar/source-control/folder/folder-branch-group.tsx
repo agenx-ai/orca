@@ -7,6 +7,7 @@ import type {
 import { cn } from '@/lib/class-names'
 import { useTranslate } from '@/i18n/use-translate'
 import { Button } from '@/components/ui/button'
+import { BranchUpstreamBadge } from '../branches/branch-upstream-badge'
 import {
   buildDefaultGitHistoryColorMap,
   buildGitHistoryViewModels
@@ -36,8 +37,8 @@ function BranchCommits({
     <Button
       type="button"
       size="xs"
-      variant="ghost"
-      className="mx-4 my-0.5 h-6 justify-start gap-1 px-1 text-[11px] font-normal text-muted-foreground"
+      variant="muted-field-icon"
+      className="mx-4 my-0.5 justify-start"
       data-testid="folder-branch-compare"
       disabled={compare.busy}
       onClick={compare.onCompare}
@@ -87,8 +88,8 @@ function BranchCommits({
         <Button
           type="button"
           size="xs"
-          variant="ghost"
-          className="ml-4 mt-0.5 text-[11px] font-normal text-muted-foreground"
+          variant="muted-field-icon"
+          className="ml-4 mt-0.5"
           data-testid="folder-branch-load-more"
           disabled={state.loadingMore === true}
           onClick={onLoadMore}
@@ -118,7 +119,8 @@ export function BranchGroup({
   onLoadMore,
   onCompare,
   comparingBranchId,
-  compareRemoteName
+  compareRemoteName,
+  compareEnabled
 }: {
   title: string
   group: 'local' | 'remote'
@@ -136,6 +138,7 @@ export function BranchGroup({
   onCompare: (branch: GitHistoryItemRef, baseRef: string) => void
   comparingBranchId: string | null
   compareRemoteName: (branch: GitHistoryItemRef) => string | null
+  compareEnabled: boolean
 }): React.JSX.Element | null {
   const t = useTranslate()
   if (branches.length === 0) {
@@ -183,6 +186,7 @@ export function BranchGroup({
                   />
                   <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{branch.name}</span>
+                  <BranchUpstreamBadge upstream={branch.upstream} />
                   {current && (
                     <Check
                       className="size-3.5 shrink-0 text-muted-foreground"
@@ -222,7 +226,7 @@ export function BranchGroup({
                 <div data-testid="folder-branch-history" data-branch={branch.name}>
                   <BranchCommits
                     state={commits[branch.id]}
-                    {...(current && remoteName
+                    {...(current && remoteName && compareEnabled
                       ? {
                           compare: {
                             label: t(

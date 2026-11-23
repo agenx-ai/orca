@@ -3,7 +3,16 @@ import { GIT_COMMIT_ACTION_METHODS } from './git-commit-action-methods'
 import { defineMethod } from '../../../core'
 import { GIT_COMMIT_MESSAGE_GENERATION_METHODS } from './git-commit-message-generation-methods'
 import { GIT_BRANCH_METHODS } from './git-branch-methods'
+import { GIT_RECOVERY_METHODS } from './git-recovery-methods'
+import { GIT_STASH_METHODS } from './git-stash-methods'
+import { GIT_TAG_METHODS } from './git-tag-methods'
+import { GIT_REMOTE_METHODS } from './git-remote-methods'
 import { GIT_DIFF_METHODS } from './git-diff-methods'
+import {
+  cancelSubmoduleActionTask,
+  readSubmoduleActionTaskProgress,
+  startSubmoduleActionTask
+} from './submodule-action-tasks'
 import {
   GitBranchCompare,
   GitBulkPaths,
@@ -22,6 +31,7 @@ import {
   GitRemoteCommitUrl,
   GitRemoteFileUrl,
   GitSubmoduleActionParams,
+  GitSubmoduleTaskParams,
   GitTargetedRemote,
   WorktreeSelector
 } from '../../../../../../shared/rpc-contract/source-control/git-params'
@@ -55,30 +65,7 @@ export const GIT_METHODS = [
         skip: params.skip
       })
   }),
-  defineMethod({
-    name: 'git.mutationInFlight',
-    permission: 'workspace',
-    params: WorktreeSelector,
-    handler: async (params, { runtime }) => runtime.getRuntimeGitMutationInFlight(params.worktree)
-  }),
-  defineMethod({
-    name: 'git.abortMerge',
-    permission: 'workspace',
-    params: WorktreeSelector,
-    handler: async (params, { runtime }) => runtime.abortRuntimeGitMerge(params.worktree)
-  }),
-  defineMethod({
-    name: 'git.completeMerge',
-    permission: 'workspace',
-    params: WorktreeSelector,
-    handler: async (params, { runtime }) => runtime.completeRuntimeGitMerge(params.worktree)
-  }),
-  defineMethod({
-    name: 'git.abortRebase',
-    permission: 'workspace',
-    params: WorktreeSelector,
-    handler: async (params, { runtime }) => runtime.abortRuntimeGitRebase(params.worktree)
-  }),
+  ...GIT_RECOVERY_METHODS,
   defineMethod({
     name: 'git.submoduleAction',
     permission: 'workspace',
@@ -86,6 +73,39 @@ export const GIT_METHODS = [
     handler: async (params, { runtime }) =>
       runtime.runRuntimeGitSubmoduleAction(params.worktree, params.action)
   }),
+  defineMethod({
+    name: 'git.submoduleActionStart',
+    permission: 'workspace',
+    params: GitSubmoduleActionParams,
+    handler: async (params, { runtime }) => ({
+      taskId: startSubmoduleActionTask({
+        worktreeSelector: params.worktree,
+        action: params.action,
+        run: ({ signal, onStderr }) =>
+          runtime.runRuntimeGitSubmoduleAction(params.worktree, params.action, {
+            signal,
+            onStderr
+          })
+      })
+    })
+  }),
+  defineMethod({
+    name: 'git.submoduleActionProgress',
+    permission: 'workspace',
+    params: GitSubmoduleTaskParams,
+    handler: async (params) => readSubmoduleActionTaskProgress(params.worktree, params.taskId)
+  }),
+  defineMethod({
+    name: 'git.submoduleActionCancel',
+    permission: 'workspace',
+    params: GitSubmoduleTaskParams,
+    handler: async (params) => ({
+      cancelled: cancelSubmoduleActionTask(params.worktree, params.taskId)
+    })
+  }),
+  ...GIT_STASH_METHODS,
+  ...GIT_TAG_METHODS,
+  ...GIT_REMOTE_METHODS,
   ...GIT_COMMIT_ACTION_METHODS,
   defineMethod({
     name: 'git.checkout',

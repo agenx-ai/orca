@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslate } from '@/i18n/use-translate'
 import { useUiLanguageRevision } from '@/i18n/use-ui-language-revision'
@@ -13,6 +13,7 @@ import {
 } from '../../../../../../shared/execution-host/execution-host'
 import {
   createFolderNestedGitSelector,
+  folderNestedRepoId,
   type FolderNestedRepo
 } from '../../../../../../shared/folder-workspaces/folder-nested-git'
 import type { WorktreeGitCopy } from '@/lib/workspace/ownership/worktree-git-copy'
@@ -24,6 +25,9 @@ import { SourceControlScopeProvider, type SourceControlScope } from '../panel/wo
 import { FolderRepositoryTree } from './folder-repository-tree'
 import { FolderRepoBranchesSection } from './folder-repo-branches'
 import { FolderSubmoduleActionsMenu } from './folder-submodule-actions-menu'
+import { FolderStashesSection } from './folder-stashes'
+import { FolderTagsSection } from './folder-tags'
+import { FolderRemotesSection } from './folder-remotes'
 import { SectionHeader } from './folder-section-header'
 import { folderReposRootKey } from './folder-repos-cache'
 import {
@@ -131,7 +135,7 @@ function FolderMultiRepoContent({
     const absolutePath = joinFolderPath(folderPath, selectedRepo.relativePath)
     const repo: Repo = {
       ...folderRepo,
-      id: `folder-nested:${folderSelector}:${selectedRepo.relativePath}`,
+      id: folderNestedRepoId(folderSelector, selectedRepo.relativePath),
       path: absolutePath,
       displayName: selectedRepo.displayName,
       kind: 'git',
@@ -176,7 +180,10 @@ function FolderMultiRepoContent({
     target
   ])
 
-  useFolderNestedRepoStatus(owner, settingsVerified && result?.autorefresh === true)
+  const refreshNestedRepoStatus = useFolderNestedRepoStatus(
+    owner,
+    settingsVerified && result?.autorefresh === true
+  )
   const selectedChangeCount = useAppStore((state) =>
     owner ? (state.gitStatusByWorktree[owner.worktreeId]?.length ?? 0) : 0
   )
@@ -263,7 +270,7 @@ function FolderMultiRepoContent({
             <FolderRepositoryTree repos={repos} selectedPath={selectedPath} onSelect={selectRepo} />
           )}
           {result && (stopped || result.stopped || result.truncated || result.timedOut) ? (
-            <div className="px-3 pb-2 text-[11px] text-amber-600 dark:text-amber-400">
+            <div className="px-3 pb-2 text-[11px] text-status-warning-text">
               {stopped || result.stopped
                 ? t('auto.components.right.sidebar.FolderRepoScm.stopped', 'Scan was stopped.')
                 : result.truncated
@@ -278,7 +285,7 @@ function FolderMultiRepoContent({
             </div>
           ) : null}
           {result?.settingsError ? (
-            <div className="px-3 pb-2 text-[11px] text-amber-600 dark:text-amber-400">
+            <div className="px-3 pb-2 text-[11px] text-status-warning-text">
               {t(
                 'auto.components.right.sidebar.FolderRepoScm.settingsInvalid',
                 '.vscode/settings.json could not be read or parsed; scan defaults are in use.'
@@ -322,17 +329,33 @@ function FolderMultiRepoContent({
         </div>
       </section>
 
-      <FolderRepoBranchesSection
-        key={owner?.worktreeId ?? 'no-repo'}
-        owner={owner}
-        selectedRepo={selectedRepo}
-        target={target}
-        onCheckedOut={(branch) => {
-          if (selectedRepo) {
-            updateRepoBranch(selectedRepo.relativePath, branch)
-          }
-        }}
-      />
+      {/* One key for the whole repo-scoped group: sibling sections must not share a key. */}
+      <Fragment key={owner?.worktreeId ?? 'no-repo'}>
+        <FolderRepoBranchesSection
+          owner={owner}
+          selectedRepo={selectedRepo}
+          target={target}
+          onCheckedOut={(branch) => {
+            if (selectedRepo) {
+              updateRepoBranch(selectedRepo.relativePath, branch)
+            }
+          }}
+        />
+
+        <FolderStashesSection
+          owner={owner}
+          target={target}
+          onChanged={() => void refreshNestedRepoStatus()}
+        />
+
+        <FolderTagsSection owner={owner} target={target} />
+
+        <FolderRemotesSection
+          owner={owner}
+          target={target}
+          onChanged={() => void refreshNestedRepoStatus()}
+        />
+      </Fragment>
     </div>
   )
 }

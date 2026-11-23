@@ -54,10 +54,15 @@ export class RuntimeGitSyncCommands {
 
   async runRuntimeGitSubmoduleAction(
     worktreeSelector: string,
-    action: GitSubmoduleAction
+    action: GitSubmoduleAction,
+    options?: { signal?: AbortSignal; onStderr?: (chunk: string) => void }
   ): Promise<{ ok: true }> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    await requireRuntimeGitProvider(target).runSubmoduleAction(target.worktree.path, action)
+    await requireRuntimeGitProvider(target).runSubmoduleAction(
+      target.worktree.path,
+      action,
+      options
+    )
     return { ok: true }
   }
 

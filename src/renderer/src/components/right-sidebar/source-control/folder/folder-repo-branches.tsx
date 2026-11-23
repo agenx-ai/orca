@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { GitCompare, RefreshCw } from 'lucide-react'
 import type { RuntimeClientTarget } from '../../../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import type { GitHistoryItemRef } from '../../../../../../shared/git/history/git-history-types'
 import type { FolderNestedRepo } from '../../../../../../shared/folder-workspaces/folder-nested-git'
@@ -10,15 +10,33 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useGitHistoryCommitActions } from '../sync/use-git-history-commit-actions'
 import { useAppStore } from '@/store/index'
+import { FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY } from '../../../../../../shared/source-control/runtime/source-control-runtime-capabilities'
+import { useRuntimeTargetCapability } from './use-runtime-target-capability'
 import { BranchGroup } from './folder-branch-group'
 import { SourceControlScopeProvider, type SourceControlScope } from '../panel/worktree-scope'
 import { SectionHeader } from './folder-section-header'
 import { useFolderRepoBranches } from './use-folder-repo-branches'
+import type { FolderRepoBranchData } from './folder-repo-branch-data'
+import { FolderBranchCompareDialog } from './folder-branch-compare-dialog'
 import {
   readFolderBranchCache,
   writeFolderBranchExpanded,
   writeFolderBranchExpandedCurrent
 } from './folder-branch-cache'
+
+function defaultCompareBase(data: FolderRepoBranchData, headId: string | null): string | null {
+  const upstream = data.upstreamName
+    ? data.remote.find((ref) => ref.name === data.upstreamName)
+    : undefined
+  if (upstream && upstream.id !== headId) {
+    return upstream.id
+  }
+  return (
+    data.local.find((ref) => ref.id !== headId)?.id ??
+    data.remote.find((ref) => ref.id !== headId)?.id ??
+    null
+  )
+}
 
 function FolderRepoBranchesBody({
   owner,
@@ -42,7 +60,9 @@ function FolderRepoBranchesBody({
     checkout,
     checkoutBranchId,
     compare,
-    comparingBranchId
+    compareRefs,
+    comparingBranchId,
+    comparingRefs
   } = useFolderRepoBranches({ owner, target })
   const { openHistoryCommitDiff } = useGitHistoryCommitActions({
     activeWorktreeId: owner.worktreeId,
@@ -52,11 +72,28 @@ function FolderRepoBranchesBody({
     resolveSplitTargetGroupId: () => undefined
   })
   const worktreeId = owner.worktreeId
+  const compareTarget = owner.gitCopy?.transport ?? target
+  const compareSupport = useRuntimeTargetCapability(
+    compareTarget,
+    FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY
+  )
+  const compareEnvironmentId =
+    compareTarget?.kind === 'environment' ? compareTarget.environmentId : null
+  const compareHostName = useAppStore((store) =>
+    compareEnvironmentId
+      ? (store.runtimeEnvironments?.find((environment) => environment.id === compareEnvironmentId)
+          ?.name ?? null)
+      : null
+  )
   const [collapsedGroups, setCollapsedGroups] = useState<Set<'local' | 'remote'>>(() => new Set())
+  const [compareOpen, setCompareOpen] = useState(false)
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set(readFolderBranchCache(worktreeId)?.expanded ?? [])
   )
   const data = state.status === 'ready' ? state.data : null
+  const defaultHeadId = data
+    ? (data.currentId ?? data.local[0]?.id ?? data.remote[0]?.id ?? null)
+    : null
   const cached = readFolderBranchCache(worktreeId)
   const autoExpandedCurrent = useRef<string | null>(cached?.expandedCurrent ?? null)
   const statusHead = useAppStore((store) => store.gitStatusHeadByWorktree[worktreeId] ?? null)
@@ -104,6 +141,7 @@ function FolderRepoBranchesBody({
     }
     autoExpandedCurrent.current = currentId
     writeFolderBranchExpandedCurrent(worktreeId, currentId)
+    // oxlint-disable-next-line react-doctor/no-adjust-state-on-prop-change -- Why: expands the newly loaded current branch, keyed by worktree and branch id.
     setExpandedBranches((prev) => (prev.has(currentId) ? prev : new Set(prev).add(currentId)))
   }, [data, worktreeId])
 
@@ -157,28 +195,53 @@ function FolderRepoBranchesBody({
         title={t('auto.components.right.sidebar.FolderRepoScm.branches', 'Branches')}
         detail={selectedRepo?.displayName}
         actions={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-6"
-                onClick={refresh}
-                disabled={!owner}
-                aria-label={t(
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-6"
+                  aria-label={t(
+                    'auto.components.right.sidebar.FolderRepoScm.compareRefs',
+                    'Compare refs'
+                  )}
+                  disabled={!data || data.local.length + data.remote.length < 2}
+                  onClick={() => setCompareOpen(true)}
+                >
+                  <GitCompare className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('auto.components.right.sidebar.FolderRepoScm.compareRefs', 'Compare refs')}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-6"
+                  onClick={refresh}
+                  disabled={!owner}
+                  aria-label={t(
+                    'auto.components.right.sidebar.FolderRepoScm.refreshBranches',
+                    'Refresh branches'
+                  )}
+                >
+                  <RefreshCw
+                    className={cn('size-3.5', state.status === 'loading' && 'animate-spin')}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t(
                   'auto.components.right.sidebar.FolderRepoScm.refreshBranches',
                   'Refresh branches'
                 )}
-              >
-                <RefreshCw
-                  className={cn('size-3.5', state.status === 'loading' && 'animate-spin')}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {t('auto.components.right.sidebar.FolderRepoScm.refreshBranches', 'Refresh branches')}
-            </TooltipContent>
-          </Tooltip>
+              </TooltipContent>
+            </Tooltip>
+          </>
         }
       />
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto pb-1">
@@ -212,6 +275,7 @@ function FolderRepoBranchesBody({
               onCompare={(branch, baseRef) => void compare(branch, baseRef)}
               comparingBranchId={comparingBranchId}
               compareRemoteName={compareRemoteName}
+              compareEnabled={compareSupport === true}
             />
             <BranchGroup
               title={t('auto.components.right.sidebar.FolderRepoScm.remoteBranches', 'Remote')}
@@ -230,10 +294,33 @@ function FolderRepoBranchesBody({
               onCompare={(branch, baseRef) => void compare(branch, baseRef)}
               comparingBranchId={comparingBranchId}
               compareRemoteName={compareRemoteName}
+              compareEnabled={compareSupport === true}
             />
+            {compareSupport === false ? (
+              <p className="px-3 py-1 text-[11px] text-muted-foreground">
+                {t(
+                  'auto.components.right.sidebar.FolderRepoScm.compareUpgrade',
+                  'Update Orca on {{host}} to compare branches.',
+                  { host: compareHostName ?? 'the host' }
+                )}
+              </p>
+            ) : null}
           </>
         ) : null}
       </div>
+      {compareOpen && data ? (
+        <FolderBranchCompareDialog
+          local={data.local}
+          remote={data.remote}
+          defaultBaseId={defaultCompareBase(data, defaultHeadId)}
+          defaultHeadId={defaultHeadId}
+          busy={comparingRefs}
+          onCancel={() => setCompareOpen(false)}
+          onCompare={(baseRef, headRef) => {
+            void compareRefs(baseRef, headRef).then(() => setCompareOpen(false))
+          }}
+        />
+      ) : null}
     </section>
   )
 }

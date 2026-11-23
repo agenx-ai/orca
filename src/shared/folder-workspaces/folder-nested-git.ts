@@ -9,6 +9,17 @@
 import { parseWorkspaceKey } from '../workspace/identity/workspace-scope'
 
 const NESTED_PREFIX = 'nested:'
+const NESTED_REPO_ID_PREFIX = 'folder-nested:'
+
+/** Synthetic repo id for source-control scope; it never exists in the repo catalog. */
+export function folderNestedRepoId(folderSelector: string, relativePath: string): string {
+  return `${NESTED_REPO_ID_PREFIX}${folderSelector}:${relativePath}`
+}
+
+/** Repo-id RPCs (`repo.*`) resolve catalog ids only, so callers must skip these synthetic ids. */
+export function isFolderNestedRepoId(repoId: string | null | undefined): boolean {
+  return typeof repoId === 'string' && repoId.startsWith(NESTED_REPO_ID_PREFIX)
+}
 
 export type FolderNestedRepo = {
   /** Repository path relative to the folder root, using `/` on every platform. */

@@ -168,11 +168,21 @@ export type RuntimeWorktreePsSummary = {
   recipeEnvironment?: { name: string; destroys?: boolean }
 }
 
+export type RuntimeGitBranchUpstream = {
+  name: string
+  ahead: number
+  behind: number
+  /** The configured upstream no longer exists locally. */
+  gone?: true
+}
+
 export type RuntimeGitLocalBranches = {
   current: string | null
   branches: string[]
   committedAt?: Record<string, number>
   worktreePaths?: Record<string, string>
+  /** Per-branch upstream tracking; absent on hosts that predate it. */
+  upstreams?: Record<string, RuntimeGitBranchUpstream>
 }
 
 export type RuntimeSpeechModelSummary = {

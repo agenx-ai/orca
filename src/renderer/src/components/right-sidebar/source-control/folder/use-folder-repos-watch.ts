@@ -88,6 +88,7 @@ export function useFolderReposWatch(args: {
       }, WATCH_MARKER_FOLLOW_UP_MS)
     }
     const handleFsChanged = (event: Event): void => {
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the source-control watch only dispatches events of this detail shape.
       const detail = (event as CustomEvent<WorktreeFileChangeEventDetail>).detail
       if (!detail || (detail.runtimeEnvironmentId ?? null) !== runtimeEnvironmentId) {
         return

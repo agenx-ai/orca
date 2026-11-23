@@ -3,6 +3,7 @@ import type {
   RuntimeRepoSearchRefs
 } from '../../../../../../shared/worktree/catalog/runtime-worktree-contracts'
 import type { BranchSwitchTarget } from '../../../../../../shared/git/branch-switch-target'
+import type { GitBranchUpstream } from '../../../../../../shared/git/history/git-history-types'
 import { isBranchNameValid } from '../../../../../../shared/git/branch-switch-target'
 import { normalizeRuntimePathForComparison } from '../../../../../../shared/file-access/cross-platform-path'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host/execution-host'
@@ -18,6 +19,7 @@ export type BranchPickerRow = {
   committedAt?: number
   occupiedPath?: string
   workspace?: BranchWorkspace
+  upstream?: GitBranchUpstream
 }
 export function indexBranchWorkspaces(
   open: boolean,
@@ -50,10 +52,22 @@ export function indexLocalBranchRows(
           : undefined
       const occupiedPath =
         path && normalizeRuntimePathForComparison(path) !== normalizedCurrent ? path : undefined
+      const upstream =
+        local.upstreams && Object.hasOwn(local.upstreams, name) ? local.upstreams[name] : undefined
       return {
         target: { kind: 'local', name },
         label: name,
         current: name === local.current,
+        ...(upstream
+          ? {
+              upstream: {
+                name: upstream.name,
+                ahead: upstream.ahead,
+                behind: upstream.behind,
+                ...(upstream.gone ? { gone: true } : {})
+              }
+            }
+          : {}),
         committedAt:
           local.committedAt && Object.hasOwn(local.committedAt, name)
             ? local.committedAt[name]

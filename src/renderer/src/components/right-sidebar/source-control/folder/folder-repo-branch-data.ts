@@ -33,13 +33,27 @@ export function buildFolderRepoBranchData(
   const currentId = localBranches.current ? `refs/heads/${localBranches.current}` : null
   const committedAt = localBranches.committedAt ?? {}
   const worktreePaths = localBranches.worktreePaths ?? {}
+  const upstreams = localBranches.upstreams ?? {}
   const local = localBranches.branches
-    .map((name): GitHistoryItemRef => ({
-      id: `refs/heads/${name}`,
-      name,
-      category: 'branches',
-      ...(worktreePaths[name] ? { worktreePath: worktreePaths[name] } : {})
-    }))
+    .map((name): GitHistoryItemRef => {
+      const upstream = Object.hasOwn(upstreams, name) ? upstreams[name] : undefined
+      return {
+        id: `refs/heads/${name}`,
+        name,
+        category: 'branches',
+        ...(worktreePaths[name] ? { worktreePath: worktreePaths[name] } : {}),
+        ...(upstream
+          ? {
+              upstream: {
+                name: upstream.name,
+                ahead: upstream.ahead,
+                behind: upstream.behind,
+                ...(upstream.gone ? { gone: true } : {})
+              }
+            }
+          : {})
+      }
+    })
     .sort((left, right) => {
       if (left.id === currentId) {
         return -1

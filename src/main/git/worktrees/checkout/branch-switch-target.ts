@@ -152,7 +152,8 @@ export function branchSwitchFailure(error: unknown, branch: string): Error {
 }
 
 export function branchSwitchTrackingFailure(text: string, branch: string): string | null {
-  if (/cannot set up tracking information/.test(text)) {
+  // Git 2.33 prints "Cannot setup tracking information"; newer versions use "set up".
+  if (/cannot set ?up tracking information/i.test(text)) {
     return `Orca couldn't set up tracking for ${branch} because this remote branch isn't included in the remote's fetch settings. Update that remote's fetch settings, fetch the branch, then try again.`
   }
   if (/could not lock config|config.*lock|config.lock/.test(text)) {

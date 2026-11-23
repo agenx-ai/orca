@@ -7,6 +7,7 @@ import { useIntlLocale, useTranslate } from '@/i18n/use-translate'
 import { useUiLanguageRevision } from '@/i18n/use-ui-language-revision'
 import { formatUiRelativeTime } from '@/i18n/relative-time-format'
 import type { BranchPickerRow } from './branch-picker-rows'
+import { BranchUpstreamBadge } from './branch-upstream-badge'
 import { useBranchPicker, type BranchPickerOptions } from './use-branch-picker'
 
 export type BranchPickerProps = BranchPickerOptions & {
@@ -127,6 +128,7 @@ const BranchRow = memo(function BranchRow({
             })
           : row.label}
       </span>
+      <BranchUpstreamBadge upstream={row.upstream} />
       {row.current ? (
         <>
           {onCopy && (

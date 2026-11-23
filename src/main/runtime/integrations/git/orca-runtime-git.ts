@@ -3,6 +3,9 @@ import { RuntimeGitGenerationCommands } from './runtime-git-generation-commands'
 import { RuntimeGitStagingCommands } from './runtime-git-staging-commands'
 import { RuntimeGitStatusCommands } from './runtime-git-status-commands'
 import { RuntimeGitSyncCommands } from './runtime-git-sync-commands'
+import { RuntimeGitStashCommands } from './runtime-git-stash-commands'
+import { RuntimeGitTagCommands } from './runtime-git-tag-commands'
+import { RuntimeGitRemoteCommands } from './runtime-git-remote-commands'
 import type { RuntimeGitCommandHost } from './runtime-git-command-target'
 
 export class RuntimeGitCommands {
@@ -28,6 +31,17 @@ export class RuntimeGitCommands {
   readonly abortRuntimeGitMerge: RuntimeGitSyncCommands['abortRuntimeGitMerge']
   readonly abortRuntimeGitRebase: RuntimeGitSyncCommands['abortRuntimeGitRebase']
   readonly runRuntimeGitSubmoduleAction: RuntimeGitSyncCommands['runRuntimeGitSubmoduleAction']
+  readonly listRuntimeGitStashes: RuntimeGitStashCommands['listRuntimeGitStashes']
+  readonly createRuntimeGitStash: RuntimeGitStashCommands['createRuntimeGitStash']
+  readonly applyRuntimeGitStash: RuntimeGitStashCommands['applyRuntimeGitStash']
+  readonly dropRuntimeGitStash: RuntimeGitStashCommands['dropRuntimeGitStash']
+  readonly listRuntimeGitTags: RuntimeGitTagCommands['listRuntimeGitTags']
+  readonly createRuntimeGitTag: RuntimeGitTagCommands['createRuntimeGitTag']
+  readonly deleteRuntimeGitTag: RuntimeGitTagCommands['deleteRuntimeGitTag']
+  readonly listRuntimeGitRemotes: RuntimeGitRemoteCommands['listRuntimeGitRemotes']
+  readonly addRuntimeGitRemote: RuntimeGitRemoteCommands['addRuntimeGitRemote']
+  readonly removeRuntimeGitRemote: RuntimeGitRemoteCommands['removeRuntimeGitRemote']
+  readonly fetchRuntimeGitRemote: RuntimeGitRemoteCommands['fetchRuntimeGitRemote']
   readonly getRuntimeGitUpstreamStatus: RuntimeGitSyncCommands['getRuntimeGitUpstreamStatus']
   readonly fetchRuntimeGit: RuntimeGitSyncCommands['fetchRuntimeGit']
   readonly syncRuntimeGitForkDefaultBranch: RuntimeGitSyncCommands['syncRuntimeGitForkDefaultBranch']
@@ -61,6 +75,9 @@ export class RuntimeGitCommands {
     const sync = new RuntimeGitSyncCommands(host)
     const generation = new RuntimeGitGenerationCommands(host)
     const staging = new RuntimeGitStagingCommands(host)
+    const stash = new RuntimeGitStashCommands(host)
+    const tags = new RuntimeGitTagCommands(host)
+    const remotes = new RuntimeGitRemoteCommands(host)
 
     this.getRuntimeGitStatus = status.getRuntimeGitStatus.bind(status)
     this.getRuntimeGitSubmoduleStatus = status.getRuntimeGitSubmoduleStatus.bind(status)
@@ -85,6 +102,17 @@ export class RuntimeGitCommands {
     this.abortRuntimeGitMerge = sync.abortRuntimeGitMerge.bind(sync)
     this.abortRuntimeGitRebase = sync.abortRuntimeGitRebase.bind(sync)
     this.runRuntimeGitSubmoduleAction = sync.runRuntimeGitSubmoduleAction.bind(sync)
+    this.listRuntimeGitStashes = stash.listRuntimeGitStashes.bind(stash)
+    this.createRuntimeGitStash = stash.createRuntimeGitStash.bind(stash)
+    this.applyRuntimeGitStash = stash.applyRuntimeGitStash.bind(stash)
+    this.dropRuntimeGitStash = stash.dropRuntimeGitStash.bind(stash)
+    this.listRuntimeGitTags = tags.listRuntimeGitTags.bind(tags)
+    this.createRuntimeGitTag = tags.createRuntimeGitTag.bind(tags)
+    this.deleteRuntimeGitTag = tags.deleteRuntimeGitTag.bind(tags)
+    this.listRuntimeGitRemotes = remotes.listRuntimeGitRemotes.bind(remotes)
+    this.addRuntimeGitRemote = remotes.addRuntimeGitRemote.bind(remotes)
+    this.removeRuntimeGitRemote = remotes.removeRuntimeGitRemote.bind(remotes)
+    this.fetchRuntimeGitRemote = remotes.fetchRuntimeGitRemote.bind(remotes)
     this.getRuntimeGitUpstreamStatus = sync.getRuntimeGitUpstreamStatus.bind(sync)
     this.fetchRuntimeGit = sync.fetchRuntimeGit.bind(sync)
     this.syncRuntimeGitForkDefaultBranch = sync.syncRuntimeGitForkDefaultBranch.bind(sync)

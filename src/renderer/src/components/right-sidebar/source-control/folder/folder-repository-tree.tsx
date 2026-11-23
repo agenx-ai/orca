@@ -9,6 +9,7 @@ import {
   GitFork
 } from 'lucide-react'
 import { cn } from '@/lib/class-names'
+import { useTranslate } from '@/i18n/use-translate'
 import type { FolderNestedRepo } from '../../../../../../shared/folder-workspaces/folder-nested-git'
 
 type DirNode = {
@@ -31,7 +32,7 @@ function repoCount(node: DirNode): number {
   )
 }
 
-function childKindLabel(node: RepoNode): string {
+function childKindLabel(node: RepoNode): 'worktrees' | 'submodules' | 'children' {
   const hasWorktree = node.children.some((child) => child.repo.isWorktree)
   const hasSubmodule = node.children.some((child) => child.repo.isSubmodule)
   if (hasWorktree && !hasSubmodule) {
@@ -123,6 +124,7 @@ function RepoRow({
   onToggle: (() => void) | null
   onSelect: () => void
 }): React.JSX.Element {
+  const t = useTranslate()
   return (
     <div
       data-testid="folder-repo-row"
@@ -145,10 +147,22 @@ function RepoRow({
       >
         <GitBranch className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         {repo.isSubmodule ? (
-          <GitFork className="size-3 shrink-0 text-muted-foreground" aria-label="Submodule" />
+          <GitFork
+            className="size-3 shrink-0 text-muted-foreground"
+            aria-label={t(
+              'auto.components.right.sidebar.FolderRepoScm.submoduleBadge',
+              'Submodule'
+            )}
+          />
         ) : null}
         {repo.isWorktree ? (
-          <Copy className="size-3 shrink-0 text-muted-foreground" aria-label="Worktree" />
+          <Copy
+            className="size-3 shrink-0 text-muted-foreground"
+            aria-label={t(
+              'auto.components.right.sidebar.FolderRepoScm.worktreeRepoBadge',
+              'Worktree'
+            )}
+          />
         ) : null}
         <span className="truncate">{repo.displayName}</span>
         {repo.branch ? (
@@ -164,8 +178,16 @@ function RepoRow({
           aria-expanded={!isCollapsed}
           aria-label={
             isCollapsed
-              ? `Expand ${childrenLabel} of ${repo.displayName}`
-              : `Collapse ${childrenLabel} of ${repo.displayName}`
+              ? t(
+                  'auto.components.right.sidebar.FolderRepoScm.expandChildren',
+                  'Expand {{children}} of {{repo}}',
+                  { children: childrenLabel, repo: repo.displayName }
+                )
+              : t(
+                  'auto.components.right.sidebar.FolderRepoScm.collapseChildren',
+                  'Collapse {{children}} of {{repo}}',
+                  { children: childrenLabel, repo: repo.displayName }
+                )
           }
           className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:bg-accent"
         >
@@ -189,8 +211,14 @@ export function FolderRepositoryTree({
   selectedPath: string | null
   onSelect: (relativePath: string) => void
 }): React.JSX.Element {
+  const t = useTranslate()
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const tree = useMemo(() => buildTree(repos), [repos])
+  const childrenLabels = {
+    worktrees: t('auto.components.right.sidebar.FolderRepoScm.worktrees', 'worktrees'),
+    submodules: t('auto.components.right.sidebar.FolderRepoScm.submodules', 'submodules'),
+    children: t('auto.components.right.sidebar.FolderRepoScm.children', 'children')
+  }
   const nested = useMemo(
     () => repos.some((repo) => repo.relativePath.includes('/') || repo.parentRelativePath),
     [repos]
@@ -239,7 +267,7 @@ export function FolderRepositoryTree({
               selected={node.repo.relativePath === selectedPath}
               indent={depth}
               isCollapsed={isCollapsed}
-              childrenLabel={childKindLabel(node)}
+              childrenLabel={childrenLabels[childKindLabel(node)]}
               onToggle={node.children.length > 0 ? () => toggle(key) : null}
               onSelect={() => onSelect(node.repo.relativePath)}
             />

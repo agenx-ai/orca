@@ -1,5 +1,12 @@
 import { snapshotLocalBranchMetadata } from '../../refs/snapshot/branch-ref-snapshot'
-import type { RuntimeGitLocalBranches } from '../../../../shared/worktree/catalog/runtime-worktree-contracts'
+import {
+  BRANCH_UPSTREAM_TRACKING_ARGS,
+  parseBranchUpstreamTracking
+} from '../../refs/branch-upstream-tracking'
+import type {
+  RuntimeGitBranchUpstream,
+  RuntimeGitLocalBranches
+} from '../../../../shared/worktree/catalog/runtime-worktree-contracts'
 import type { BranchSwitchCreation } from '../../../../shared/git/branch-switch-target'
 
 import {
@@ -43,17 +50,32 @@ export async function checkoutBranch(
   return { skippedPaths: parseCheckoutSkippedPaths(stderr) }
 }
 
+/** Tracking is decorative; a failed read must not hide the branch list. */
+async function readBranchUpstreams(
+  worktreePath: string,
+  options: GitRuntimeOptions
+): Promise<Record<string, RuntimeGitBranchUpstream>> {
+  try {
+    const { stdout } = await gitExecFileAsync(BRANCH_UPSTREAM_TRACKING_ARGS, {
+      ...gitOptionsForWorktree(worktreePath, options),
+      maxBuffer: 4 * 1024 * 1024
+    })
+    return parseBranchUpstreamTracking(stdout)
+  } catch {
+    return {}
+  }
+}
+
 /** Current checkout state stays request-specific while the shared branch population is reused. */
 export async function listLocalBranches(
   worktreePath: string,
   options: GitRuntimeOptions = {}
 ): Promise<RuntimeGitLocalBranches> {
   options.signal?.throwIfAborted()
-  const {
-    refs,
-    current,
-    worktreePaths: occupied
-  } = await snapshotLocalBranchMetadata(worktreePath, options)
+  const [{ refs, current, worktreePaths: occupied }, upstreams] = await Promise.all([
+    snapshotLocalBranchMetadata(worktreePath, options),
+    readBranchUpstreams(worktreePath, options)
+  ])
   options.signal?.throwIfAborted()
   const branches = refs.map((ref) => ref.label)
   if (current) {
@@ -71,5 +93,5 @@ export async function listLocalBranches(
   for (const [name, path] of occupied) {
     worktreePaths[name] = translateWorktreePath(path, worktreePath, options)
   }
-  return { current, branches, committedAt, worktreePaths }
+  return { current, branches, committedAt, worktreePaths, upstreams }
 }

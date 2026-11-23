@@ -20,18 +20,22 @@ import {
   resolveRefOid
 } from './compare-ref-oids'
 
+function shortRefLabel(ref: string): string {
+  if (ref.startsWith('refs/heads/')) {
+    return ref.slice('refs/heads/'.length)
+  }
+  return ref.startsWith('refs/remotes/') ? ref.slice('refs/remotes/'.length) : ref
+}
+
 export async function getBranchCompare(
   worktreePath: string,
   baseRef: string,
   options: GitRuntimeOptions = {},
   headRef?: string
 ): Promise<GitBranchCompareResult> {
-  const compareRefLabel =
-    headRef?.startsWith('refs/heads/') === true && headRef.length > 'refs/heads/'.length
-      ? headRef.slice('refs/heads/'.length)
-      : headRef
+  const compareRefLabel = headRef === undefined ? undefined : shortRefLabel(headRef)
   const summary: GitBranchCompareSummary = {
-    baseRef,
+    baseRef: shortRefLabel(baseRef),
     baseOid: null,
     compareRef: compareRefLabel ?? 'HEAD',
     headOid: null,
@@ -103,7 +107,7 @@ export async function getBranchCompare(
     summary.baseOid = baseOid
   } else {
     summary.status = 'invalid-base'
-    summary.errorMessage = `Base ref ${baseRef} could not be resolved in this repository.`
+    summary.errorMessage = `Base ref ${shortRefLabel(baseRef)} could not be resolved in this repository.`
     return { summary, entries: [] }
   }
 
@@ -123,7 +127,7 @@ export async function getBranchCompare(
     summary.mergeBase = mergeBase
   } catch {
     summary.status = 'no-merge-base'
-    summary.errorMessage = `This branch and ${baseRef} do not share a merge base, so compare-to-base is unavailable.`
+    summary.errorMessage = `This branch and ${shortRefLabel(baseRef)} do not share a merge base, so compare-to-base is unavailable.`
     return { summary, entries: [] }
   }
 
