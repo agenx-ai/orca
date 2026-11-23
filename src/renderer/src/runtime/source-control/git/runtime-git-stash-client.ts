@@ -41,24 +41,26 @@ export async function createRuntimeGitStash(
 export async function applyRuntimeGitStash(
   context: Pick<RuntimeGitContext, 'target' | 'worktreeId'>,
   index: number,
-  pop: boolean
+  pop: boolean,
+  commit?: string
 ): Promise<void> {
   await callRuntimeRpc(
     context.target,
     'git.stashApply',
-    { worktree: worktree(context), index, pop },
+    { worktree: worktree(context), index, pop, ...(commit ? { commit } : {}) },
     { timeoutMs: MUTATION_TIMEOUT_MS }
   )
 }
 
 export async function dropRuntimeGitStash(
   context: Pick<RuntimeGitContext, 'target' | 'worktreeId'>,
-  index: number
+  index: number,
+  commit?: string
 ): Promise<void> {
   await callRuntimeRpc(
     context.target,
     'git.stashDrop',
-    { worktree: worktree(context), index },
+    { worktree: worktree(context), index, ...(commit ? { commit } : {}) },
     { timeoutMs: MUTATION_TIMEOUT_MS }
   )
 }

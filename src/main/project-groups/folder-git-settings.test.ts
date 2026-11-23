@@ -48,6 +48,8 @@ describe('parseFolderGitScanSettings', () => {
       detectWorktrees: false,
       detectWorktreesLimit: 50,
       autorefresh: true,
+      autofetch: false,
+      autofetchPeriod: 180,
       ignoreSubmodules: null,
       invalid: false
     })

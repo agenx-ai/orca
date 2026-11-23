@@ -24,6 +24,8 @@ import { branchErrorMessage, useFolderRepoBranchCommits } from './use-folder-rep
 export function useFolderRepoBranches(args: {
   owner: SourceControlScope | null
   target: RuntimeClientTarget | null
+  /** False while the repo group is collapsed, so branches load only when shown. */
+  enabled?: boolean
 }): {
   state: FolderRepoBranchesState
   commits: Record<string, FolderBranchCommitsState>
@@ -41,6 +43,7 @@ export function useFolderRepoBranches(args: {
   const worktreePath = args.owner?.worktree.path ?? null
   const routeTarget = args.owner?.gitCopy?.transport ?? args.target
   const connectionId = args.owner?.repo.connectionId ?? undefined
+  const enabled = args.enabled ?? true
   const context = useMemo<RuntimeGitContext | null>(
     () =>
       routeTarget && worktreeId && worktreePath
@@ -63,6 +66,9 @@ export function useFolderRepoBranches(args: {
   const generation = useRef(0)
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
     const request = ++generation.current
     settleInFlight()
     if (!context) {
@@ -71,7 +77,7 @@ export function useFolderRepoBranches(args: {
     }
     setState({ status: 'loading' })
     void Promise.all([
-      getRuntimeGitRefs(context, 'refs/remotes/origin/'),
+      getRuntimeGitRefs(context, 'refs/remotes/'),
       listRuntimeGitBranches(context),
       getRuntimeGitUpstreamStatus(context).catch(() => null)
     ])
@@ -97,7 +103,7 @@ export function useFolderRepoBranches(args: {
           error: branchErrorMessage(error, 'Failed to load branches')
         })
       })
-  }, [context, refreshRevision, settleInFlight])
+  }, [context, enabled, refreshRevision, settleInFlight])
 
   const refresh = useCallback((): void => {
     clearCommits()

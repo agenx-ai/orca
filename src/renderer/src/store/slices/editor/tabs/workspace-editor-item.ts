@@ -27,13 +27,16 @@ export function openWorkspaceEditorItem(
 ): string {
   const graphTab =
     contentType === 'git-graph'
-      ? state.unifiedTabsByWorktree?.[worktreeId]?.find((tab) => tab.contentType === 'git-graph')
+      ? state.unifiedTabsByWorktree?.[worktreeId]?.find(
+          (tab) => tab.contentType === 'git-graph' && tab.entityId === fileId
+        )
       : undefined
   if (graphTab) {
     state.activateTab?.(graphTab.id, { worktreeId })
     return graphTab.id
   }
-  const fixedTabId = contentType === 'git-graph' ? `${worktreeId}::git-graph` : undefined
+  // Why fileId: nested folder repos share one placement workspace, so only the file id is unique per repo.
+  const fixedTabId = contentType === 'git-graph' ? fileId : undefined
   const resolvedGroupId = resolveEditorOpenTargetGroupId(state, worktreeId, targetGroupId)
   if (resolvedGroupId) {
     const existing = state.findTabForEntityInGroup?.(

@@ -30,13 +30,18 @@ export const GIT_STASH_METHODS = [
     permission: 'workspace',
     params: GitStashApply,
     handler: async (params, { runtime }) =>
-      runtime.applyRuntimeGitStash(params.worktree, params.index, params.pop === true)
+      runtime.applyRuntimeGitStash(
+        params.worktree,
+        params.index,
+        params.pop === true,
+        params.commit
+      )
   }),
   defineMethod({
     name: 'git.stashDrop',
     permission: 'workspace',
     params: GitStashDrop,
     handler: async (params, { runtime }) =>
-      runtime.dropRuntimeGitStash(params.worktree, params.index)
+      runtime.dropRuntimeGitStash(params.worktree, params.index, params.commit)
   })
 ]

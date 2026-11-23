@@ -1,367 +1,192 @@
-import { useEffect, useRef, useState } from 'react'
-import { GitCompare, RefreshCw } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ListFilter } from 'lucide-react'
 import type { RuntimeClientTarget } from '../../../../../../shared/remote-runtime/host-catalog/runtime-client-target'
-import type { GitHistoryItemRef } from '../../../../../../shared/git/history/git-history-types'
-import type { FolderNestedRepo } from '../../../../../../shared/folder-workspaces/folder-nested-git'
-import { cn } from '@/lib/class-names'
 import { useTranslate } from '@/i18n/use-translate'
 import { useUiLanguageRevision } from '@/i18n/use-ui-language-revision'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useGitHistoryCommitActions } from '../sync/use-git-history-commit-actions'
-import { useAppStore } from '@/store/index'
-import { FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY } from '../../../../../../shared/source-control/runtime/source-control-runtime-capabilities'
-import { useRuntimeTargetCapability } from './use-runtime-target-capability'
-import { BranchGroup } from './folder-branch-group'
-import { SourceControlScopeProvider, type SourceControlScope } from '../panel/worktree-scope'
-import { SectionHeader } from './folder-section-header'
-import { useFolderRepoBranches } from './use-folder-repo-branches'
-import type { FolderRepoBranchData } from './folder-repo-branch-data'
-import { FolderBranchCompareDialog } from './folder-branch-compare-dialog'
 import {
-  readFolderBranchCache,
-  writeFolderBranchExpanded,
-  writeFolderBranchExpandedCurrent
-} from './folder-branch-cache'
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SourceControlScopeProvider } from '../panel/worktree-scope'
+import { SectionHeader } from './folder-section-header'
+import { FolderRepoBranchGroup } from './folder-repo-branch-group'
+import type { FolderNestedRepoScopeEntry } from './folder-nested-repo-scope'
 
-function defaultCompareBase(data: FolderRepoBranchData, headId: string | null): string | null {
-  const upstream = data.upstreamName
-    ? data.remote.find((ref) => ref.name === data.upstreamName)
-    : undefined
-  if (upstream && upstream.id !== headId) {
-    return upstream.id
-  }
+function RepoFilterMenu({
+  entries,
+  hiddenPaths,
+  onToggle,
+  onShowAll
+}: {
+  entries: readonly FolderNestedRepoScopeEntry[]
+  hiddenPaths: ReadonlySet<string>
+  onToggle: (relativePath: string, visible: boolean) => void
+  onShowAll: () => void
+}): React.JSX.Element {
+  const t = useTranslate()
+  const label = t(
+    'auto.components.right.sidebar.FolderRepoScm.filterRepositories',
+    'Filter repositories'
+  )
   return (
-    data.local.find((ref) => ref.id !== headId)?.id ??
-    data.remote.find((ref) => ref.id !== headId)?.id ??
-    null
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-6"
+              aria-label={label}
+              data-testid="folder-branch-repo-filter"
+            >
+              <ListFilter className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>
+          {t('auto.components.right.sidebar.FolderRepoScm.repositories', 'Repositories')}
+        </DropdownMenuLabel>
+        {entries.map((entry) => (
+          <DropdownMenuCheckboxItem
+            key={entry.repo.relativePath}
+            checked={!hiddenPaths.has(entry.repo.relativePath)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={(checked) => onToggle(entry.repo.relativePath, checked === true)}
+          >
+            {entry.repo.displayName}
+          </DropdownMenuCheckboxItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled={hiddenPaths.size === 0} onSelect={onShowAll}>
+          {t(
+            'auto.components.right.sidebar.FolderRepoScm.showAllRepositories',
+            'Show all repositories'
+          )}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-function FolderRepoBranchesBody({
-  owner,
-  selectedRepo,
+export function FolderRepoBranchesSection({
+  entries,
+  selectedPath,
   target,
   onCheckedOut
 }: {
-  owner: SourceControlScope
-  selectedRepo: FolderNestedRepo | null
+  entries: readonly FolderNestedRepoScopeEntry[]
+  selectedPath: string | null
   target: RuntimeClientTarget | null
-  onCheckedOut?: (branch: string | null) => void
+  onCheckedOut?: (relativePath: string, branch: string | null) => void
 }): React.JSX.Element {
   const t = useTranslate()
   useUiLanguageRevision()
-  const {
-    state,
-    commits,
-    loadCommits,
-    loadMore,
-    refresh,
-    checkout,
-    checkoutBranchId,
-    compare,
-    compareRefs,
-    comparingBranchId,
-    comparingRefs
-  } = useFolderRepoBranches({ owner, target })
-  const { openHistoryCommitDiff } = useGitHistoryCommitActions({
-    activeWorktreeId: owner.worktreeId,
-    worktreePath: owner.worktree.path,
-    activeRepoTarget: owner.gitCopy?.transport ?? target,
-    ownerConnectionId: owner.repo.connectionId,
-    resolveSplitTargetGroupId: () => undefined
-  })
-  const worktreeId = owner.worktreeId
-  const compareTarget = owner.gitCopy?.transport ?? target
-  const compareSupport = useRuntimeTargetCapability(
-    compareTarget,
-    FOLDER_BRANCH_COMPARE_RUNTIME_CAPABILITY
+  const [hiddenPaths, setHiddenPaths] = useState<ReadonlySet<string>>(() => new Set())
+  const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(
+    () => new Set(selectedPath ? [selectedPath] : [])
   )
-  const compareEnvironmentId =
-    compareTarget?.kind === 'environment' ? compareTarget.environmentId : null
-  const compareHostName = useAppStore((store) =>
-    compareEnvironmentId
-      ? (store.runtimeEnvironments?.find((environment) => environment.id === compareEnvironmentId)
-          ?.name ?? null)
-      : null
-  )
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<'local' | 'remote'>>(() => new Set())
-  const [compareOpen, setCompareOpen] = useState(false)
-  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
-    () => new Set(readFolderBranchCache(worktreeId)?.expanded ?? [])
-  )
-  const data = state.status === 'ready' ? state.data : null
-  const defaultHeadId = data
-    ? (data.currentId ?? data.local[0]?.id ?? data.remote[0]?.id ?? null)
-    : null
-  const cached = readFolderBranchCache(worktreeId)
-  const autoExpandedCurrent = useRef<string | null>(cached?.expandedCurrent ?? null)
-  const statusHead = useAppStore((store) => store.gitStatusHeadByWorktree[worktreeId] ?? null)
-  const observedHead = useRef(statusHead)
-  // Null means detached; the repo row then drops its branch label like a rescan would.
-  const reportedBranch = useRef<string | null>(selectedRepo?.branch || null)
 
+  // The selected repository's group is the one expanded by default; older expansions fold away.
   useEffect(() => {
-    writeFolderBranchExpanded(worktreeId, expandedBranches)
-  }, [expandedBranches, worktreeId])
+    if (!selectedPath) {
+      return
+    }
+    setExpandedPaths(new Set([selectedPath]))
+  }, [selectedPath])
 
-  // A checkout outside Orca reaches us through status polling; reload list and history pages.
-  useEffect(() => {
-    if (!statusHead) {
-      return
-    }
-    if (observedHead.current === null) {
-      // The first status read establishes the baseline; only later changes invalidate.
-      observedHead.current = statusHead
-      return
-    }
-    if (observedHead.current === statusHead) {
-      return
-    }
-    observedHead.current = statusHead
-    refresh()
-  }, [refresh, statusHead])
-
-  useEffect(() => {
-    if (!data) {
-      return
-    }
-    const current = data.local.find((ref) => ref.id === data.currentId)?.name ?? null
-    if (reportedBranch.current === current) {
-      return
-    }
-    reportedBranch.current = current
-    onCheckedOut?.(current)
-  }, [data, onCheckedOut])
-
-  useEffect(() => {
-    const currentId = data?.currentId
-    if (!currentId || autoExpandedCurrent.current === currentId) {
-      return
-    }
-    autoExpandedCurrent.current = currentId
-    writeFolderBranchExpandedCurrent(worktreeId, currentId)
-    // oxlint-disable-next-line react-doctor/no-adjust-state-on-prop-change -- Why: expands the newly loaded current branch, keyed by worktree and branch id.
-    setExpandedBranches((prev) => (prev.has(currentId) ? prev : new Set(prev).add(currentId)))
-  }, [data, worktreeId])
-
-  useEffect(() => {
-    if (!data) {
-      return
-    }
-    for (const id of expandedBranches) {
-      const branch =
-        data.local.find((ref) => ref.id === id) ?? data.remote.find((ref) => ref.id === id)
-      if (branch) {
-        loadCommits(branch)
-      }
-    }
-  }, [data, expandedBranches, loadCommits])
-
-  const toggleGroup = (group: 'local' | 'remote'): void => {
-    setCollapsedGroups((prev) => {
+  const visibleEntries = entries.filter((entry) => !hiddenPaths.has(entry.repo.relativePath))
+  const toggleExpanded = (relativePath: string): void => {
+    setExpandedPaths((prev) => {
       const next = new Set(prev)
-      if (next.has(group)) {
-        next.delete(group)
+      if (next.has(relativePath)) {
+        next.delete(relativePath)
       } else {
-        next.add(group)
+        next.add(relativePath)
       }
       return next
     })
   }
-
-  const toggleBranch = (branch: GitHistoryItemRef): void => {
-    setExpandedBranches((prev) => {
+  const setRepoVisible = (relativePath: string, visible: boolean): void => {
+    setHiddenPaths((prev) => {
       const next = new Set(prev)
-      if (next.has(branch.id)) {
-        next.delete(branch.id)
+      if (visible) {
+        next.delete(relativePath)
       } else {
-        next.add(branch.id)
+        next.add(relativePath)
       }
       return next
     })
-  }
-
-  const compareRemoteName = (branch: GitHistoryItemRef): string | null => {
-    if (!data || branch.id !== data.currentId) {
-      return null
-    }
-    return data.upstreamName
   }
 
   return (
     <section className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-t border-border">
       <SectionHeader
         title={t('auto.components.right.sidebar.FolderRepoScm.branches', 'Branches')}
-        detail={selectedRepo?.displayName}
+        detail={
+          entries.length > 1
+            ? t(
+                'auto.components.right.sidebar.FolderRepoScm.showingRepositories',
+                '{{visible}} of {{total}} repositories',
+                { visible: visibleEntries.length, total: entries.length }
+              )
+            : entries[0]?.repo.displayName
+        }
         actions={
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-6"
-                  aria-label={t(
-                    'auto.components.right.sidebar.FolderRepoScm.compareRefs',
-                    'Compare refs'
-                  )}
-                  disabled={!data || data.local.length + data.remote.length < 2}
-                  onClick={() => setCompareOpen(true)}
-                >
-                  <GitCompare className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t('auto.components.right.sidebar.FolderRepoScm.compareRefs', 'Compare refs')}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-6"
-                  onClick={refresh}
-                  disabled={!owner}
-                  aria-label={t(
-                    'auto.components.right.sidebar.FolderRepoScm.refreshBranches',
-                    'Refresh branches'
-                  )}
-                >
-                  <RefreshCw
-                    className={cn('size-3.5', state.status === 'loading' && 'animate-spin')}
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t(
-                  'auto.components.right.sidebar.FolderRepoScm.refreshBranches',
-                  'Refresh branches'
-                )}
-              </TooltipContent>
-            </Tooltip>
-          </>
+          entries.length > 1 ? (
+            <RepoFilterMenu
+              entries={entries}
+              hiddenPaths={hiddenPaths}
+              onToggle={setRepoVisible}
+              onShowAll={() => setHiddenPaths(new Set())}
+            />
+          ) : undefined
         }
       />
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto pb-1">
-        {state.status === 'loading' || state.status === 'idle' ? (
-          <div className="space-y-2 px-3 pb-2" aria-busy="true">
-            <div className="h-2 w-2/3 rounded bg-muted" />
-            <div className="h-2 w-1/2 rounded bg-muted" />
-          </div>
-        ) : state.status === 'error' ? (
-          <div className="px-3 pb-2 text-xs text-destructive">{state.error}</div>
-        ) : data && data.local.length === 0 && data.remote.length === 0 ? (
+        {entries.length === 0 ? (
           <div className="px-3 pb-2 text-xs text-muted-foreground">
-            {t('auto.components.right.sidebar.FolderRepoScm.noBranches', 'No branches found.')}
+            {t(
+              'auto.components.right.sidebar.FolderRepoScm.selectRepoBranches',
+              'Select a repository to view branches.'
+            )}
           </div>
-        ) : data ? (
-          <>
-            <BranchGroup
-              title={t('auto.components.right.sidebar.FolderRepoScm.localBranches', 'Local')}
-              group="local"
-              branches={data.local}
-              currentId={data.currentId}
-              collapsed={collapsedGroups.has('local')}
-              onToggle={() => toggleGroup('local')}
-              expandedBranches={expandedBranches}
-              commits={commits}
-              onToggleBranch={toggleBranch}
-              onCheckout={(branch) => void checkout(branch)}
-              checkoutBranchId={checkoutBranchId}
-              onOpenCommit={(item) => void openHistoryCommitDiff(item)}
-              onLoadMore={(branch) => void loadMore(branch)}
-              onCompare={(branch, baseRef) => void compare(branch, baseRef)}
-              comparingBranchId={comparingBranchId}
-              compareRemoteName={compareRemoteName}
-              compareEnabled={compareSupport === true}
-            />
-            <BranchGroup
-              title={t('auto.components.right.sidebar.FolderRepoScm.remoteBranches', 'Remote')}
-              group="remote"
-              branches={data.remote}
-              currentId={data.currentId}
-              collapsed={collapsedGroups.has('remote')}
-              onToggle={() => toggleGroup('remote')}
-              expandedBranches={expandedBranches}
-              commits={commits}
-              onToggleBranch={toggleBranch}
-              onCheckout={(branch) => void checkout(branch)}
-              checkoutBranchId={checkoutBranchId}
-              onOpenCommit={(item) => void openHistoryCommitDiff(item)}
-              onLoadMore={(branch) => void loadMore(branch)}
-              onCompare={(branch, baseRef) => void compare(branch, baseRef)}
-              comparingBranchId={comparingBranchId}
-              compareRemoteName={compareRemoteName}
-              compareEnabled={compareSupport === true}
-            />
-            {compareSupport === false ? (
-              <p className="px-3 py-1 text-[11px] text-muted-foreground">
-                {t(
-                  'auto.components.right.sidebar.FolderRepoScm.compareUpgrade',
-                  'Update Orca on {{host}} to compare branches.',
-                  { host: compareHostName ?? 'the host' }
-                )}
-              </p>
-            ) : null}
-          </>
-        ) : null}
+        ) : visibleEntries.length === 0 ? (
+          <div className="px-3 pb-2 text-xs text-muted-foreground">
+            {t(
+              'auto.components.right.sidebar.FolderRepoScm.noRepositoriesSelected',
+              'No repositories selected.'
+            )}
+          </div>
+        ) : (
+          visibleEntries.map((entry) => (
+            <SourceControlScopeProvider
+              key={entry.scope.worktreeId}
+              owner={entry.scope}
+              active={expandedPaths.has(entry.repo.relativePath)}
+            >
+              <FolderRepoBranchGroup
+                entry={entry}
+                expanded={expandedPaths.has(entry.repo.relativePath)}
+                selected={entry.repo.relativePath === selectedPath}
+                target={target}
+                onToggleExpanded={() => toggleExpanded(entry.repo.relativePath)}
+                {...(onCheckedOut ? { onCheckedOut } : {})}
+              />
+            </SourceControlScopeProvider>
+          ))
+        )}
       </div>
-      {compareOpen && data ? (
-        <FolderBranchCompareDialog
-          local={data.local}
-          remote={data.remote}
-          defaultBaseId={defaultCompareBase(data, defaultHeadId)}
-          defaultHeadId={defaultHeadId}
-          busy={comparingRefs}
-          onCancel={() => setCompareOpen(false)}
-          onCompare={(baseRef, headRef) => {
-            void compareRefs(baseRef, headRef).then(() => setCompareOpen(false))
-          }}
-        />
-      ) : null}
     </section>
-  )
-}
-
-export function FolderRepoBranchesSection({
-  owner,
-  selectedRepo,
-  target,
-  onCheckedOut
-}: {
-  owner: SourceControlScope | null
-  selectedRepo: FolderNestedRepo | null
-  target: RuntimeClientTarget | null
-  onCheckedOut?: (branch: string | null) => void
-}): React.JSX.Element {
-  const t = useTranslate()
-  useUiLanguageRevision()
-  if (!owner) {
-    return (
-      <section className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-t border-border">
-        <SectionHeader
-          title={t('auto.components.right.sidebar.FolderRepoScm.branches', 'Branches')}
-          detail={selectedRepo?.displayName}
-        />
-        <div className="px-3 pb-2 text-xs text-muted-foreground">
-          {t(
-            'auto.components.right.sidebar.FolderRepoScm.selectRepoBranches',
-            'Select a repository to view branches.'
-          )}
-        </div>
-      </section>
-    )
-  }
-  return (
-    <SourceControlScopeProvider owner={owner} active>
-      <FolderRepoBranchesBody
-        owner={owner}
-        selectedRepo={selectedRepo}
-        target={target}
-        {...(onCheckedOut ? { onCheckedOut } : {})}
-      />
-    </SourceControlScopeProvider>
   )
 }

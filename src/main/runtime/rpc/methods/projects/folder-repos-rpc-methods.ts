@@ -165,7 +165,9 @@ export const FOLDER_REPO_METHODS = [
             maxRepos: normalized.maxRepos,
             settingsFingerprint,
             settingsError: settings.invalid,
-            autorefresh: settings.autorefresh
+            autorefresh: settings.autorefresh,
+            autofetch: settings.autofetch,
+            autofetchPeriod: settings.autofetchPeriod
           }
         }
         const [extraRoots, ignoredAbsolute] = await Promise.all([
@@ -260,7 +262,9 @@ export const FOLDER_REPO_METHODS = [
           maxRepos: scan.maxRepos,
           settingsFingerprint,
           settingsError: settings.invalid,
-          autorefresh: settings.autorefresh
+          autorefresh: settings.autorefresh,
+          autofetch: settings.autofetch,
+          autofetchPeriod: settings.autofetchPeriod
         }
       } finally {
         scanHandle?.finish()

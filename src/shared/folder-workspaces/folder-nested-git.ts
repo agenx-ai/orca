@@ -59,6 +59,10 @@ export type FolderNestedRepoScanResult = {
   settingsError: boolean
   /** git.autorefresh: refresh the selected repository status automatically. */
   autorefresh: boolean
+  /** git.autofetch: false disables background fetches; 'all' fetches every remote. */
+  autofetch: boolean | 'all'
+  /** git.autofetchPeriod in seconds, raised to VS Code's 60s minimum. */
+  autofetchPeriod: number
 }
 
 export type FolderReposSettingsResult = {
@@ -94,6 +98,14 @@ export function folderWorkspaceIdFromNestedGitSelector(selector: string): string
   }
   const scope = parseWorkspaceKey(folderSelector)
   return scope?.type === 'folder' ? scope.folderWorkspaceId : null
+}
+
+/** Absolute path of a nested repo under its folder root, using the folder's separator convention. */
+export function folderNestedRepoPath(folderPath: string, relativePath: string): string {
+  const separator = folderPath.includes('\\') && !folderPath.includes('/') ? '\\' : '/'
+  return `${folderPath.replace(/[\\/]+$/, '')}${separator}${relativePath
+    .split('/')
+    .join(separator)}`
 }
 
 export function createFolderNestedGitSelector(

@@ -6,6 +6,8 @@ import { nestedRepoPathKey } from './nested-repo-scan-rules'
 
 const SETTINGS_FILE = join('.vscode', 'settings.json')
 const DEFAULT_MAX_DEPTH = 3
+const DEFAULT_AUTOFETCH_PERIOD = 180
+const MIN_AUTOFETCH_PERIOD = 60
 
 export type FolderGitScanSettings = {
   scanEnabled: boolean
@@ -28,6 +30,10 @@ export type FolderGitScanSettings = {
   detectWorktreesLimit: number
   /** git.autorefresh: poll the selected nested repository for status changes. */
   autorefresh: boolean
+  /** git.autofetch: false disables background fetches; 'all' fetches every remote. */
+  autofetch: boolean | 'all'
+  /** git.autofetchPeriod: seconds between automatic fetches; raised to VS Code's 60s minimum. */
+  autofetchPeriod: number
   /** git.ignoreSubmodules: how nested repo status treats submodule changes; null keeps Git defaults. */
   ignoreSubmodules: 'all' | 'dirty' | 'untracked' | null
   invalid: boolean
@@ -45,6 +51,8 @@ export const DEFAULT_FOLDER_GIT_SCAN_SETTINGS: FolderGitScanSettings = {
   detectWorktrees: false,
   detectWorktreesLimit: 50,
   autorefresh: true,
+  autofetch: false,
+  autofetchPeriod: 180,
   ignoreSubmodules: null,
   invalid: false
 }
@@ -131,6 +139,12 @@ function readCount(value: unknown, fallback: number): number {
     : fallback
 }
 
+function readAutofetchPeriod(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(MIN_AUTOFETCH_PERIOD, Math.trunc(value))
+    : DEFAULT_AUTOFETCH_PERIOD
+}
+
 function readIgnoreSubmodules(value: unknown): 'all' | 'dirty' | 'untracked' | null {
   if (value === true) {
     return 'all'
@@ -156,6 +170,8 @@ export function parseFolderGitScanSettings(parsed: unknown): FolderGitScanSettin
     detectWorktrees: parsed['git.detectWorktrees'] === true,
     detectWorktreesLimit: readCount(parsed['git.detectWorktreesLimit'], 50),
     autorefresh: parsed['git.autorefresh'] !== false,
+    autofetch: parsed['git.autofetch'] === 'all' ? 'all' : parsed['git.autofetch'] === true,
+    autofetchPeriod: readAutofetchPeriod(parsed['git.autofetchPeriod']),
     ignoreSubmodules: readIgnoreSubmodules(parsed['git.ignoreSubmodules']),
     invalid: false
   }
@@ -176,6 +192,8 @@ export function folderGitSettingsFingerprint(settings: FolderGitScanSettings): s
     detectWorktrees: settings.detectWorktrees,
     detectWorktreesLimit: settings.detectWorktreesLimit,
     autorefresh: settings.autorefresh,
+    autofetch: settings.autofetch,
+    autofetchPeriod: settings.autofetchPeriod,
     ignoreSubmodules: settings.ignoreSubmodules
   })
 }

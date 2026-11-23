@@ -87,9 +87,10 @@ export function useFolderRepoBranchCommits(args: {
     setCommits({})
   }, [worktreeId])
 
-  const loadCommits = useCallback(
+  /** Fresh first page: the only way to recover after the host refuses a stale history token. */
+  const requestFirstPage = useCallback(
     (branch: GitHistoryItemRef): void => {
-      if (!context || commits[branch.id]) {
+      if (!context) {
         return
       }
       const request = generation.current
@@ -117,7 +118,17 @@ export function useFolderRepoBranchCommits(args: {
           }))
         })
     },
-    [commits, context]
+    [context]
+  )
+
+  const loadCommits = useCallback(
+    (branch: GitHistoryItemRef): void => {
+      if (!context || commits[branch.id]) {
+        return
+      }
+      requestFirstPage(branch)
+    },
+    [commits, context, requestFirstPage]
   )
 
   const loadMore = useCallback(
@@ -147,14 +158,15 @@ export function useFolderRepoBranchCommits(args: {
           if (generation.current !== request) {
             return
           }
+          // The host restarted the walk; refetch from the first page instead of keeping empty items.
+          if (result.historyChanged) {
+            requestFirstPage(branch)
+            return
+          }
           setCommits((prev) => {
             const latest = prev[branch.id]
             if (!latest || latest.status !== 'ready') {
               return prev
-            }
-            // The host restarted the walk; replace the stale pages instead of merging across histories.
-            if (result.historyChanged) {
-              return { ...prev, [branch.id]: { status: 'ready', result } }
             }
             const seen = new Set(latest.result.items.map((item) => item.id))
             const items = [
@@ -178,7 +190,7 @@ export function useFolderRepoBranchCommits(args: {
           toast.error(branchErrorMessage(error, 'Failed to load commits'))
         })
     },
-    [commits, context]
+    [commits, context, requestFirstPage]
   )
 
   return { commits, loadCommits, loadMore, settleInFlight, clearCommits }

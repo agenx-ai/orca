@@ -235,7 +235,7 @@ function StashesBody({
                           'auto.components.right.sidebar.FolderRepoScm.stashApplied',
                           'Stash applied.'
                         ),
-                        () => applyRuntimeGitStash(context, entry.index, false),
+                        () => applyRuntimeGitStash(context, entry.index, false, entry.commit),
                         true
                       )
                     }
@@ -249,7 +249,7 @@ function StashesBody({
                           'auto.components.right.sidebar.FolderRepoScm.stashPopped',
                           'Stash popped.'
                         ),
-                        () => applyRuntimeGitStash(context, entry.index, true),
+                        () => applyRuntimeGitStash(context, entry.index, true, entry.commit),
                         true
                       )
                     }
@@ -273,7 +273,7 @@ function StashesBody({
           setPendingDrop(null)
           void run(
             t('auto.components.right.sidebar.FolderRepoScm.stashDropped', 'Stash dropped.'),
-            () => dropRuntimeGitStash(context, entry.index),
+            () => dropRuntimeGitStash(context, entry.index, entry.commit),
             false
           )
         }}

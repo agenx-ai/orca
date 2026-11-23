@@ -67,9 +67,7 @@ export function buildFolderRepoBranchData(
       )
     })
   const remote = remoteRefs
-    .filter(
-      (ref) => ref.category === 'remote branches' && ref.id.startsWith('refs/remotes/origin/')
-    )
+    .filter((ref) => ref.category === 'remote branches' && ref.id.startsWith('refs/remotes/'))
     .sort((left, right) => left.name.localeCompare(right.name))
   return { local, remote, currentId, upstreamName }
 }

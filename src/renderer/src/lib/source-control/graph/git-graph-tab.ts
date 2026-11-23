@@ -28,6 +28,13 @@ import {
   getSshTargetIdForExecutionHost,
   type ExecutionHostId
 } from '../../../../../shared/execution-host/execution-host'
+import {
+  folderNestedRepoId,
+  folderNestedRepoPath,
+  parseFolderNestedGitSelector
+} from '../../../../../shared/folder-workspaces/folder-nested-git'
+import { folderIdOfSelector } from '../../../../../shared/workspace/identity/workspace-scope'
+import type { Worktree } from '../../../../../shared/worktree/types'
 
 type ScopeState = WorktreeOperationRouteState &
   Pick<ReturnType<typeof useAppStore.getState>, 'repos' | 'worktreesByRepo'>
@@ -57,6 +64,52 @@ export function useGitGraphScope(worktreeId: string, executionHostId?: Execution
   )
 }
 
+/** Nested folder repos have no catalog rows; build the same scope from the owning folder workspace. */
+function nestedFolderGraphScope(
+  worktreeId: string,
+  state: ScopeState,
+  route: ReturnType<typeof resolveWorktreeOperationRoute>
+) {
+  const parsed = parseFolderNestedGitSelector(worktreeId)
+  if (!parsed || !route?.executionHostId) {
+    return null
+  }
+  const folderId = folderIdOfSelector(parsed.folderSelector)
+  const folder = folderId
+    ? selectFolderWorkspaces(state)?.find((row) => row.id === folderId)
+    : undefined
+  if (!folder?.folderPath) {
+    return null
+  }
+  const path = folderNestedRepoPath(folder.folderPath, parsed.relativePath)
+  const worktree: Worktree = {
+    id: worktreeId,
+    repoId: folderNestedRepoId(parsed.folderSelector, parsed.relativePath),
+    displayName: parsed.relativePath,
+    comment: '',
+    linkedIssue: null,
+    linkedPR: null,
+    linkedLinearIssue: null,
+    isArchived: false,
+    isUnread: false,
+    isPinned: false,
+    sortOrder: 0,
+    lastActivityAt: 0,
+    path,
+    head: '',
+    branch: '',
+    isBare: false,
+    isMainWorktree: false,
+    hostId: route.executionHostId
+  }
+  return {
+    worktree,
+    route,
+    connectionId: getSshTargetIdForExecutionHost(route.executionHostId),
+    target: runtimeTargetForOwnerEnvironment(route.runtimeEnvironmentId)
+  }
+}
+
 export function gitGraphScope(
   worktreeId: string,
   state: ScopeState = useAppStore.getState(),
@@ -73,14 +126,15 @@ export function gitGraphScope(
     worktree &&
     route?.executionHostId &&
     findIndexedRepoOwnerForHost(state.repos, worktree.repoId, route.executionHostId)
-  return worktree && route && repo?.kind !== 'folder'
-    ? {
-        worktree,
-        route,
-        connectionId: getSshTargetIdForExecutionHost(route.executionHostId),
-        target: runtimeTargetForOwnerEnvironment(route.runtimeEnvironmentId)
-      }
-    : null
+  if (worktree && route && repo?.kind !== 'folder') {
+    return {
+      worktree,
+      route,
+      connectionId: getSshTargetIdForExecutionHost(route.executionHostId),
+      target: runtimeTargetForOwnerEnvironment(route.runtimeEnvironmentId)
+    }
+  }
+  return nestedFolderGraphScope(worktreeId, state, route)
 }
 
 export function gitGraphSupport(worktreeId: string): boolean | null {
@@ -131,13 +185,13 @@ export async function openGitGraph(
     return
   }
   const state = useAppStore.getState()
-  const existing = state.unifiedTabsByWorktree?.[worktreeId]?.find(
-    (tab) => tab.contentType === 'git-graph'
-  )
-  const id = existing?.entityId ?? `${worktreeId}::git-graph`
+  // Nested folder repos place their tab on the folder workspace, like folder commit diffs do.
+  const placementWorkspaceId = parseFolderNestedGitSelector(worktreeId)?.folderSelector
+  const placementId = placementWorkspaceId ?? worktreeId
+  const id = `${worktreeId}::git-graph`
   const label = translate('gitGraph.title', 'Git Graph')
   if (state.openFiles.some((file) => file.id === id)) {
-    openWorkspaceEditorItem(state, id, worktreeId, label, 'git-graph')
+    openWorkspaceEditorItem(state, id, placementId, label, 'git-graph')
     return
   }
   state.openFile(
@@ -153,6 +207,11 @@ export async function openGitGraph(
       },
       mode: 'git-graph'
     },
-    { reopenId: id, preview: false, targetGroupId: resolveTargetGroupId?.() }
+    {
+      reopenId: id,
+      preview: false,
+      targetGroupId: resolveTargetGroupId?.(),
+      ...(placementWorkspaceId ? { placementWorkspaceId } : {})
+    }
   )
 }

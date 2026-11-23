@@ -11,20 +11,16 @@ import {
   getRepoExecutionHostId,
   type ExecutionHostId
 } from '../../../../../../shared/execution-host/execution-host'
-import {
-  createFolderNestedGitSelector,
-  folderNestedRepoId,
-  type FolderNestedRepo
-} from '../../../../../../shared/folder-workspaces/folder-nested-git'
-import type { WorktreeGitCopy } from '@/lib/workspace/ownership/worktree-git-copy'
+import type { FolderNestedRepo } from '../../../../../../shared/folder-workspaces/folder-nested-git'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SourceControlPanelReady } from '../panel/panel-ready'
 import { useSourceControlPanelModel } from '../panel/use-panel-model'
-import { SourceControlScopeProvider, type SourceControlScope } from '../panel/worktree-scope'
+import { SourceControlScopeProvider } from '../panel/worktree-scope'
 import { FolderRepositoryTree } from './folder-repository-tree'
 import { FolderRepoBranchesSection } from './folder-repo-branches'
 import { FolderSubmoduleActionsMenu } from './folder-submodule-actions-menu'
+import { folderNestedRepoScope } from './folder-nested-repo-scope'
 import { FolderStashesSection } from './folder-stashes'
 import { FolderTagsSection } from './folder-tags'
 import { FolderRemotesSection } from './folder-remotes'
@@ -36,15 +32,9 @@ import {
   useFolderReposScan
 } from './use-folder-repos'
 import { useFolderNestedRepoStatus } from './use-folder-nested-repo-status'
+import { useFolderRepoAutofetch } from './use-folder-repo-autofetch'
 
 const EMPTY_REPOS: readonly FolderNestedRepo[] = []
-
-function joinFolderPath(folderPath: string, relativePath: string): string {
-  const separator = folderPath.includes('\\') && !folderPath.includes('/') ? '\\' : '/'
-  return `${folderPath.replace(/[\\/]+$/, '')}${separator}${relativePath
-    .split('/')
-    .join(separator)}`
-}
 
 function NestedRepoChanges(): React.JSX.Element | null {
   const model = useSourceControlPanelModel()
@@ -127,58 +117,31 @@ function FolderMultiRepoContent({
     [repos, selectedPath]
   )
 
-  const owner = useMemo<SourceControlScope | null>(() => {
-    if (!selectedRepo || !target) {
-      return null
-    }
-    const nestedSelector = createFolderNestedGitSelector(folderSelector, selectedRepo.relativePath)
-    const absolutePath = joinFolderPath(folderPath, selectedRepo.relativePath)
-    const repo: Repo = {
-      ...folderRepo,
-      id: folderNestedRepoId(folderSelector, selectedRepo.relativePath),
-      path: absolutePath,
-      displayName: selectedRepo.displayName,
-      kind: 'git',
-      connectionId: folderRepo.connectionId ?? null,
-      executionHostId
-    }
-    const worktree: Worktree = {
-      ...folderWorktree,
-      id: nestedSelector,
-      repoId: repo.id,
-      path: absolutePath,
-      displayName: selectedRepo.displayName,
-      branch: selectedRepo.branch ?? '',
-      head: '',
-      isBare: false,
-      isMainWorktree: false,
-      hostId: executionHostId
-    }
-    const gitCopy: WorktreeGitCopy = {
-      worktreeId: nestedSelector,
-      hostId: executionHostId,
-      connectionId: repo.connectionId ?? undefined,
-      transport: target
-    }
-    return {
-      worktreeId: nestedSelector,
-      repoId: repo.id,
-      executionHostId,
-      worktree,
-      repo,
-      placementWorkspaceId: folderWorktree.id,
-      attachedAt: folderWorktree.createdAt ?? 0,
-      gitCopy
-    }
-  }, [
-    executionHostId,
-    folderPath,
-    folderRepo,
-    folderSelector,
-    folderWorktree,
-    selectedRepo,
-    target
-  ])
+  const repoScopes = useMemo(
+    () =>
+      repos.flatMap((repo) => {
+        const scope = folderNestedRepoScope({
+          folderRepo,
+          folderWorktree,
+          folderPath,
+          repo,
+          target,
+          executionHostId
+        })
+        return scope ? [{ repo, scope }] : []
+      }),
+    [executionHostId, folderPath, folderRepo, folderWorktree, repos, target]
+  )
+
+  const owner = useMemo(
+    () => repoScopes.find((entry) => entry.repo.relativePath === selectedPath)?.scope ?? null,
+    [repoScopes, selectedPath]
+  )
+  useFolderRepoAutofetch(
+    repoScopes,
+    settingsVerified ? (result?.autofetch ?? false) : false,
+    result?.autofetchPeriod ?? 180
+  )
 
   const refreshNestedRepoStatus = useFolderNestedRepoStatus(
     owner,
@@ -329,19 +292,15 @@ function FolderMultiRepoContent({
         </div>
       </section>
 
+      <FolderRepoBranchesSection
+        entries={repoScopes}
+        selectedPath={selectedPath}
+        target={target}
+        onCheckedOut={(relativePath, branch) => updateRepoBranch(relativePath, branch)}
+      />
+
       {/* One key for the whole repo-scoped group: sibling sections must not share a key. */}
       <Fragment key={owner?.worktreeId ?? 'no-repo'}>
-        <FolderRepoBranchesSection
-          owner={owner}
-          selectedRepo={selectedRepo}
-          target={target}
-          onCheckedOut={(branch) => {
-            if (selectedRepo) {
-              updateRepoBranch(selectedRepo.relativePath, branch)
-            }
-          }}
-        />
-
         <FolderStashesSection
           owner={owner}
           target={target}
