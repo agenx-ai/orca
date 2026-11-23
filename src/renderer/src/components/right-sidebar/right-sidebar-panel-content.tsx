@@ -7,8 +7,8 @@ import '../../../../shared/plugins/manifest/plugin-manifest'
 import { isPluginPanelTabKey } from '../../../../shared/plugins/frames/plugin-tab-key'
 
 const FileExplorer = lazy(() => import('./file-explorer/panel/FileExplorer'))
-const FolderWorkspaceSourceControl = lazy(
-  () => import('./folder-workspaces/FolderWorkspaceSourceControlPanel')
+const FolderMultiRepoSourceControl = lazy(
+  () => import('./source-control/folder/folder-multi-repo-source-control-panel-host')
 )
 const SourceControl = lazy(() => import('./source-control/panel/SourceControl'))
 const ChecksPanel = lazy(() => import('./checks-panel/ChecksPanel'))
@@ -53,7 +53,7 @@ export function RightSidebarPanelContent({
         {effectiveTab === 'explorer' && <FileExplorer />}
         {effectiveTab === 'source-control' &&
           (isFolderWorkspace ? (
-            rightSidebarOpen && <FolderWorkspaceSourceControl />
+            rightSidebarOpen && <FolderMultiRepoSourceControl />
           ) : (
             <SourceControl />
           ))}

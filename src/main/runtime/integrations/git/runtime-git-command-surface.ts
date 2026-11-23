@@ -11,6 +11,7 @@ type RuntimeGitCommandName =
   | 'readRuntimeWorktreeAtRiskLocalFiles'
   | 'abortRuntimeGitMerge'
   | 'abortRuntimeGitRebase'
+  | 'runRuntimeGitSubmoduleAction'
   | 'switchRuntimeGitBranch'
   | 'checkoutRuntimeGitBranch'
   | 'listRuntimeGitLocalBranches'
@@ -67,6 +68,7 @@ export function installRuntimeGitCommandSurface(
       commands.readRuntimeWorktreeAtRiskLocalFiles.bind(commands),
     abortRuntimeGitMerge: commands.abortRuntimeGitMerge.bind(commands),
     abortRuntimeGitRebase: commands.abortRuntimeGitRebase.bind(commands),
+    runRuntimeGitSubmoduleAction: commands.runRuntimeGitSubmoduleAction.bind(commands),
     switchRuntimeGitBranch: commands.switchRuntimeGitBranch.bind(commands),
     checkoutRuntimeGitBranch: commands.checkoutRuntimeGitBranch.bind(commands),
     listRuntimeGitLocalBranches: commands.listRuntimeGitLocalBranches.bind(commands),

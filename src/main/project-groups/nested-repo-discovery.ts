@@ -8,7 +8,9 @@ import { isGitRepoAsync } from '../git/repositories/discovery/repo-detection'
 import { awaitWindowsHostGitEnvironmentReady } from '../git/command-runner/host-routing/windows-host-git-environment'
 import { parseWslUncPath } from '../../shared/file-access/wsl-paths'
 import {
+  isHardSkippedNestedRepoPath,
   isIgnoredNestedRepoDirectory,
+  nestedRepoPathKey,
   normalizeNestedRepoScanOptions,
   readNestedRepoGitignoreRules,
   type NestedRepoDirectoryEntry,
@@ -118,13 +120,23 @@ export async function scanNestedRepos(args: {
   filesystem?: NestedRepoScanFilesystem
   signal?: AbortSignal
   onProgress?: (scan: NestedRepoScanResult) => void
+  /** Extra roots from git.scanRepositories, relative to `path` (segments joined with `/` by the caller). */
+  extraRoots?: readonly { path: string; segments: readonly string[] }[]
+  ignoredFolders?: readonly string[]
+  /** Repo paths relative to `path`, from git.ignoredRepositories. */
+  ignoredRepositories?: readonly string[]
+  /** Folder scans use VS Code depth semantics; other callers keep the historical boundary. */
+  vsCodeDepth?: boolean
 }): Promise<NestedRepoScanResult> {
   const startedAt = Date.now()
   const options = normalizeNestedRepoScanOptions(args.options)
   const repos: NestedRepoCandidate[] = []
-  let truncated = false
-  let timedOut = false
-  let stopped = false
+  const extraIgnoredFolders = args.ignoredFolders?.length ? new Set(args.ignoredFolders) : undefined
+  const ignoredRepositories = new Set((args.ignoredRepositories ?? []).map(nestedRepoPathKey))
+  const discoveredRepoPaths = new Set<string>()
+  let truncated = false,
+    timedOut = false,
+    stopped = false
   const filesystem = args.filesystem ?? {
     readDirectory: readLocalDirectory,
     readTextFile: (path: string) => readFile(path, 'utf8'),
@@ -166,9 +178,43 @@ export async function scanNestedRepos(args: {
     return buildResult('non_git_folder')
   }
 
+  const addRepo = (path: string, displayName: string, depth: number): void => {
+    if (discoveredRepoPaths.has(path)) {
+      return
+    }
+    discoveredRepoPaths.add(path)
+    repos.push({ path, displayName, depth })
+    emitProgress()
+  }
+
   const foldersToTraverse: (TraversalFolder | undefined)[] = [
     { path: args.path, depth: 0, segments: [], ignoreRules: [] }
   ]
+  const extraRoots = [...(args.extraRoots ?? [])].sort((left, right) =>
+    left.segments.join('/').localeCompare(right.segments.join('/'))
+  )
+  for (const root of extraRoots) {
+    if (repos.length >= options.maxRepos) {
+      truncated = true
+      break
+    }
+    if (options.timeoutMs !== null && Date.now() - startedAt > options.timeoutMs) {
+      timedOut = true
+      break
+    }
+    if (noteAbort()) {
+      break
+    }
+    if (isHardSkippedNestedRepoPath(root.segments)) {
+      continue
+    }
+    if (ignoredRepositories.has(nestedRepoPathKey(root.segments.join('/')))) {
+      continue
+    }
+    if (await filesystem.hasGitMarker(root.path)) {
+      addRepo(root.path, filesystem.basename(root.path), Math.max(1, root.segments.length))
+    }
+  }
   let nextFolderIndex = 0
 
   while (nextFolderIndex < foldersToTraverse.length) {
@@ -190,7 +236,11 @@ export async function scanNestedRepos(args: {
       foldersToTraverse.splice(0, nextFolderIndex)
       nextFolderIndex = 0
     }
-    if (currentFolder.depth > options.maxDepth) {
+    if (
+      args.vsCodeDepth
+        ? options.maxDepth !== -1 && currentFolder.depth >= options.maxDepth
+        : currentFolder.depth > options.maxDepth
+    ) {
       continue
     }
 
@@ -230,7 +280,9 @@ export async function scanNestedRepos(args: {
         break
       }
       const childSegments = [...currentFolder.segments, name]
-      if (isIgnoredNestedRepoDirectory(name, childSegments, currentIgnoreRules)) {
+      if (
+        isIgnoredNestedRepoDirectory(name, childSegments, currentIgnoreRules, extraIgnoredFolders)
+      ) {
         continue
       }
       const childPath = filesystem.joinPath(currentFolder.path, name)
@@ -240,17 +292,18 @@ export async function scanNestedRepos(args: {
         break
       }
       if (childHasGitMarker) {
-        repos.push({
-          path: childPath,
-          displayName: filesystem.basename(childPath),
-          depth: currentFolder.depth + 1
-        })
-        emitProgress()
+        if (!ignoredRepositories.has(nestedRepoPathKey(childSegments.join('/')))) {
+          addRepo(childPath, filesystem.basename(childPath), currentFolder.depth + 1)
+        }
         // Hide submodule-style descendants until the group UI supports selecting them.
         continue
       }
       // Breadth-first traversal spends the bounded scan on nearby siblings before deep branches.
-      if (currentFolder.depth < options.maxDepth) {
+      if (
+        args.vsCodeDepth
+          ? options.maxDepth === -1 || currentFolder.depth < options.maxDepth
+          : currentFolder.depth < options.maxDepth
+      ) {
         foldersToTraverse.push({
           path: childPath,
           depth: currentFolder.depth + 1,

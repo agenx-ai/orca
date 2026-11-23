@@ -3,7 +3,11 @@ import type {
   GitCommitCompareResult,
   GitDiffResult
 } from '../../../../../shared/git/diff/git-diff-compare-types'
-import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-client-context'
+import {
+  resolveLocalWorktreePath,
+  usesRuntimeGitRpc,
+  type RuntimeGitContext
+} from './runtime-git-client-context'
 import { callRuntimeRpc } from '../../rpc/calls/runtime-rpc-call'
 import { RuntimeRpcCallError } from '../../rpc/calls/runtime-rpc-result'
 import { GIT_DIFF_TOO_LARGE_CODE } from '../../../../../shared/git/diff/git-diff-transport-budget'
@@ -47,7 +51,7 @@ export async function getRuntimeGitDiff(
   options?: GitDiffWakeOptions
 ): Promise<GitDiffResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return orTooLargeForConnection(
       window.api.git.diff({
         worktreePath: resolveLocalWorktreePath(context),
@@ -73,15 +77,17 @@ export async function getRuntimeGitDiff(
 export async function getRuntimeGitBranchCompare(
   context: RuntimeGitContext,
   baseRef: string,
-  admissionTier: 'interactive' | 'background' = 'interactive'
+  admissionTier: 'interactive' | 'background' = 'interactive',
+  headRef?: string
 ): Promise<GitBranchCompareResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.branchCompare({
       worktreePath: resolveLocalWorktreePath(context),
       baseRef,
       connectionId: context.connectionId,
-      admissionTier
+      admissionTier,
+      ...(headRef === undefined ? {} : { headRef })
     })
   }
   return callRuntimeRpc<GitBranchCompareResult>(
@@ -90,7 +96,8 @@ export async function getRuntimeGitBranchCompare(
     {
       worktree: toRuntimeWorktreeSelector(context.worktreeId),
       baseRef,
-      admissionTier
+      admissionTier,
+      ...(headRef === undefined ? {} : { headRef })
     },
     { timeoutMs: 15_000 }
   )
@@ -101,7 +108,7 @@ export async function getRuntimeGitCommitCompare(
   commitId: string
 ): Promise<GitCommitCompareResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.commitCompare({
       worktreePath: resolveLocalWorktreePath(context),
       commitId,
@@ -126,7 +133,7 @@ export async function getRuntimeGitBranchDiff(
   options?: GitDiffWakeOptions
 ): Promise<GitDiffResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return orTooLargeForConnection(
       window.api.git.branchDiff({
         worktreePath: resolveLocalWorktreePath(context),
@@ -159,7 +166,7 @@ export async function getRuntimeGitCommitDiff(
   options?: GitDiffWakeOptions
 ): Promise<GitDiffResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return orTooLargeForConnection(
       window.api.git.commitDiff({
         worktreePath: resolveLocalWorktreePath(context),

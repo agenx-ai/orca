@@ -108,7 +108,14 @@ export function createOpenCombinedDiff(
         openWorkspaceEditorItem(get(), id, placementId, label, 'diff', false, groupId)
       )
     },
-    openBranchAllDiffs: (worktreeId, worktreePath, compare, alternate, options) => {
+    openBranchAllDiffs: (
+      worktreeId,
+      worktreePath,
+      compare,
+      alternate,
+      options,
+      entriesSnapshot
+    ) => {
       const contentOwner = editorOpenOwner(get(), worktreeId, options)
       const branchCompare = toBranchCompareSnapshot(compare)
       const id = qualifyEditorContentId(
@@ -120,7 +127,8 @@ export function createOpenCombinedDiff(
       const intent = editorPlacementIntent(get, placementId)
       const groupId = resolveEditorOpenTargetGroupId(get(), placementId, options?.targetGroupId)
       set((s) => {
-        const branchEntriesSnapshot = s.gitBranchChangesByWorktree[worktreeId] ?? []
+        const branchEntriesSnapshot =
+          entriesSnapshot ?? s.gitBranchChangesByWorktree[worktreeId] ?? []
         intent.register(id)
         const existing = s.openFiles.find((f) => f.id === id)
         if (existing) {

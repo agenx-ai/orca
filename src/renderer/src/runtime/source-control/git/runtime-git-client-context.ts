@@ -16,6 +16,7 @@ import type { ResolvedSourceControlAiGenerationParams } from '../../../../../sha
 import { splitWorktreeIdForFilesystem } from '../../../../../shared/worktree/id'
 import type { RuntimeClientTarget } from '../../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import type { TextGenerationFailureFields } from '../../../../../shared/text-generation/text-generation-failure-copy'
+import { isFolderNestedGitSelector } from '../../../../../shared/folder-workspaces/folder-nested-git'
 
 export type RuntimeGenerateCommitMessageResult =
   | { success: true; message: string; agentLabel?: string }
@@ -78,6 +79,11 @@ export function resolveLocalWorktreePath(context: RuntimeGitContext): string {
   return context.worktreeId
     ? (splitWorktreeIdForFilesystem(context.worktreeId)?.worktreePath ?? context.worktreePath)
     : context.worktreePath
+}
+
+/** Nested repos bypass the local IPC path allowlist; their selector is only known to the runtime. */
+export function usesRuntimeGitRpc(context: RuntimeGitContext): boolean {
+  return context.target.kind !== 'local' || isFolderNestedGitSelector(context.worktreeId ?? '')
 }
 
 export function getRuntimeGitScope(

@@ -26,6 +26,7 @@ export function registerGitRemoteCompareHandlers(context: FilesystemHandlerConte
         baseRef: string
         connectionId?: string
         admissionTier?: GitAdmissionTier
+        headRef?: string
       }
     ): Promise<GitBranchCompareResult> => {
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
@@ -38,10 +39,15 @@ export function registerGitRemoteCompareHandlers(context: FilesystemHandlerConte
         worktreePath
       )
       await assertWslUncPathRunning(worktreePath, gitOptions.wslDistro)
-      return getBranchCompare(worktreePath, args.baseRef, {
-        ...gitOptions,
-        ...(args.admissionTier ? { admissionTier: args.admissionTier } : {})
-      })
+      return getBranchCompare(
+        worktreePath,
+        args.baseRef,
+        {
+          ...gitOptions,
+          ...(args.admissionTier ? { admissionTier: args.admissionTier } : {})
+        },
+        args.headRef
+      )
     }
   )
 

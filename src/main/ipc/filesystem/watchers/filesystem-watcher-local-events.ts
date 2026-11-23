@@ -7,9 +7,9 @@ import type {
 import { watchBatchFlushDelayMs } from '../../../../shared/file-watch/filesystem-watch-batch-window'
 import { MAX_BATCHED_WATCHER_EVENTS, queueWatcherEvents } from './filesystem-watcher-event-batch'
 // Filter high-churn events at source; Explorer display filters only hide rows.
-import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
 import type { WatchedRoot } from './filesystem-watcher-wsl'
-import { subscribeViaWatcherProcess } from '../watcher-process/parcel-watcher-process'
+import type { WatcherProcessCallback } from '../watcher-process/parcel-watcher-process-subscription'
+import { subscribeLocalWatcherProcess } from './filesystem-watcher-local-subscribe'
 import { normalizeWatcherEventPath } from './filesystem-watcher-paths'
 import { watcherLifecycleState } from './filesystem-watcher-lifecycle-state'
 import {
@@ -230,55 +230,48 @@ export async function createLocalWatcher(
     // Errors can precede subscribe resolution; retain cleanup evidence to retire the orphan handle.
     let errorCleanedUp = false
 
-    const watcherOptions = {
-      ...buildParcelWatcherIgnoreOptions(WATCHER_IGNORE_DIRS),
-      // Pin Windows backend to avoid Parcel's noisy Watchman probe.
-      ...(process.platform === 'win32' ? { backend: 'windows' as const } : {})
-    }
-
     const markWatcherInterrupted = (): void => {
       notifyLocalWatcherInterrupted(root)
       root.batch.overflowed = true
       scheduleLocalBatchFlush(root)
     }
 
-    // Isolate watcher.node teardown crashes in a child; interruptions require overflow refresh (#7547).
-    root.subscription = await subscribeViaWatcherProcess(
-      rootPath,
-      (err, events) => {
-        if (err) {
-          // Errors invalidate path precision; force a conservative renderer refresh.
-          console.error(`[filesystem-watcher] error for ${rootKey}:`, err)
-          notifyLocalWatcherInterrupted(root)
-          emitOverflowPayload(root)
-          // Retire native subscriptions that may be invalid after errors or root deletion.
-          cancelLocalBatchFlush(root)
-          // The error callback can precede assignment of the subscription.
-          if (root.subscription) {
-            retainLocalWatcherPhysicalFailure(rootKey, err)
-            void trackDetachedLocalUnsubscribe(rootKey, root)
-          }
-          errorCleanedUp = true
-          watcherLifecycleState.watchedRoots.delete(rootKey)
-          return
+    const onWatcherEvents: WatcherProcessCallback = (err, events) => {
+      if (err) {
+        // Errors invalidate path precision; force a conservative renderer refresh.
+        console.error(`[filesystem-watcher] error for ${rootKey}:`, err)
+        notifyLocalWatcherInterrupted(root)
+        emitOverflowPayload(root)
+        // Retire native subscriptions that may be invalid after errors or root deletion.
+        cancelLocalBatchFlush(root)
+        // The error callback can precede assignment of the subscription.
+        if (root.subscription) {
+          retainLocalWatcherPhysicalFailure(rootKey, err)
+          void trackDetachedLocalUnsubscribe(rootKey, root)
         }
-
-        if (root.batch.cancelled) {
-          return
-        }
-        notifyLocalWatcherEvents(root, events)
-        queueWatcherEvents(root.batch, events)
-        scheduleLocalBatchFlush(root)
-      },
-      watcherOptions,
-      {
-        delivery: { maxEventsPerBatch: MAX_BATCHED_WATCHER_EVENTS },
-        // A child restart or bounded-queue overflow loses path precision; both need the same conservative renderer refresh.
-        onInterruption: markWatcherInterrupted,
-        onOverflow: markWatcherInterrupted,
-        signal
+        errorCleanedUp = true
+        watcherLifecycleState.watchedRoots.delete(rootKey)
+        return
       }
-    )
+
+      if (root.batch.cancelled) {
+        return
+      }
+      notifyLocalWatcherEvents(root, events)
+      queueWatcherEvents(root.batch, events)
+      scheduleLocalBatchFlush(root)
+    }
+
+    const watcherHooks = {
+      delivery: { maxEventsPerBatch: MAX_BATCHED_WATCHER_EVENTS },
+      // A child restart or bounded-queue overflow loses path precision; both need the same conservative renderer refresh.
+      onInterruption: markWatcherInterrupted,
+      onOverflow: markWatcherInterrupted,
+      signal
+    }
+
+    // Isolate watcher.node teardown crashes in a child; interruptions require overflow refresh (#7547).
+    root.subscription = await subscribeLocalWatcherProcess(rootPath, onWatcherEvents, watcherHooks)
 
     // subscribe resolved after error cleanup; retire its orphaned native handle.
     if (errorCleanedUp) {

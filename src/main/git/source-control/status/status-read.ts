@@ -65,6 +65,7 @@ function getStatusReadKey(worktreePath: string, options: GetStatusOptions): stri
     // Totals for different fork points or opt-in states cannot share a lease.
     options.branchLineTotalMergeBase ?? '',
     options.bypassEffectiveUpstreamNegativeCache === true,
+    options.ignoreSubmodules ?? '',
     limit,
     // Filtering options affect which rows survive and must participate in the cache key.
     options.sharedLinkPaths ?? []

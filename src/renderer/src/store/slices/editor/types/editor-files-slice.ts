@@ -245,7 +245,8 @@ export type EditorFilesSlice = {
     worktreePath: string,
     compare: GitBranchCompareSummary,
     alternate?: CombinedDiffAlternate,
-    options?: EditorOpenTargetOptions
+    options?: EditorOpenTargetOptions,
+    entriesSnapshot?: GitBranchChangeEntry[]
   ) => void
   openCommitAllDiffs: (
     worktreeId: string,

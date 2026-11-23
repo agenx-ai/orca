@@ -3,6 +3,7 @@ import { getRepoExecutionHostId } from '../../../../../shared/execution-host/exe
 import { isRepoHidden } from '../../../../../shared/project/catalog/hidden-projects'
 import { resolveReplySnapshot } from '../../workspace-client-views/content-snapshot-id'
 import { PROJECT_GROUP_METHODS } from './project-group-rpc-methods'
+import { FOLDER_REPO_METHODS } from './folder-repos-rpc-methods'
 import { PROJECT_RUNTIME_METHODS } from './project-runtime-rpc-methods'
 import { FOLDER_WORKSPACE_METHODS } from '../workspaces/folder-workspace'
 import {
@@ -55,6 +56,7 @@ export const REPO_METHODS = [
   }),
   ...PROJECT_RUNTIME_METHODS,
   ...PROJECT_GROUP_METHODS,
+  ...FOLDER_REPO_METHODS,
   ...FOLDER_WORKSPACE_METHODS,
   defineMethod({
     name: 'repo.sparsePresets',

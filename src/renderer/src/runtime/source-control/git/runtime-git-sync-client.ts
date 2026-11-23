@@ -5,7 +5,11 @@ import type {
 import type { GitUpstreamStatus } from '../../../../../shared/git/status/git-status-types'
 import { REBASE_FROM_BASE_RPC_TIMEOUT_MS } from '../../../../../shared/git/remotes/git-rebase-source'
 import type { GitPushTarget } from '../../../../../shared/worktree/types'
-import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-client-context'
+import {
+  resolveLocalWorktreePath,
+  usesRuntimeGitRpc,
+  type RuntimeGitContext
+} from './runtime-git-client-context'
 import { translate } from '@/i18n/i18n'
 import { callRuntimeRpc } from '../../rpc/calls/runtime-rpc-call'
 import { RuntimeRpcCallError } from '../../rpc/calls/runtime-rpc-result'
@@ -13,7 +17,7 @@ import { toRuntimeWorktreeSelector } from '../../rpc/targets/runtime-worktree-se
 
 export async function abortRuntimeGitMerge(context: RuntimeGitContext): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.abortMerge({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
@@ -30,7 +34,7 @@ export async function abortRuntimeGitMerge(context: RuntimeGitContext): Promise<
 
 export async function abortRuntimeGitRebase(context: RuntimeGitContext): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.abortRebase({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
@@ -50,7 +54,7 @@ export async function getRuntimeGitUpstreamStatus(
   pushTarget?: GitPushTarget
 ): Promise<GitUpstreamStatus> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.upstreamStatus({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -73,7 +77,7 @@ export async function fetchRuntimeGit(
   pushTarget?: GitPushTarget
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.fetch({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -98,7 +102,7 @@ export async function syncRuntimeGitForkDefaultBranch(
   expectedUpstream: GitForkSyncExpectedUpstream
 ): Promise<GitForkSyncResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.syncFork({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -118,7 +122,7 @@ export async function pullRuntimeGit(
   pushTarget?: GitPushTarget
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.pull({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -143,7 +147,7 @@ export async function fastForwardRuntimeGit(
   pushTarget?: GitPushTarget
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.fastForward({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -168,7 +172,7 @@ export async function rebaseRuntimeGitFromBase(
   baseRef: string
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.rebaseFromBase({
       worktreePath: resolveLocalWorktreePath(context),
       baseRef,
@@ -189,7 +193,7 @@ export async function pushRuntimeGit(
   args: { publish?: boolean; pushTarget?: GitPushTarget; forceWithLease?: boolean } = {}
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.push({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -218,7 +222,7 @@ export async function commitRuntimeGit(
   message: string
 ): Promise<{ success: boolean; error?: string }> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.commit({
       worktreePath: resolveLocalWorktreePath(context),
       message,
@@ -237,7 +241,7 @@ export async function completeRuntimeGitMerge(
   context: RuntimeGitContext
 ): Promise<{ success: boolean; error?: string }> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.completeMerge({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId

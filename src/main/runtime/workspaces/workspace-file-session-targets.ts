@@ -10,6 +10,7 @@ import {
 import { getLocalProjectWorktreeGitOptions } from '../../workspaces/execution-host/project-runtime-git-options'
 import { resolveWorktreeHostRouting } from './catalog/worktree-launch-host-repo'
 import { isFloatingWorkspaceSelector } from '../../../shared/workspace/identity/floating-workspace-worktree'
+import { isFolderNestedGitSelector } from '../../../shared/folder-workspaces/folder-nested-git'
 import { RuntimeMarkdownTabOperations } from '../files/paths/runtime-markdown-tab-operations'
 export abstract class RuntimeWorkspaceFileTargets extends RuntimeMarkdownTabOperations {
   protected abstract floatingWorkspaceToResolvedWorktree(
@@ -44,7 +45,9 @@ export abstract class RuntimeWorkspaceFileTargets extends RuntimeMarkdownTabOper
     localGitOptions?: { wslDistro?: string }
   }> {
     const store = this.requireStore()
-    const worktree = await this.resolveGitWorktreeSelector(worktreeSelector)
+    const worktree = isFolderNestedGitSelector(worktreeSelector)
+      ? await this.resolveFolderNestedGitSelector(worktreeSelector)
+      : await this.resolveGitWorktreeSelector(worktreeSelector)
     const routing = resolveWorktreeHostRouting(store.getRepos(), worktree)
     if (routing.kind === 'ambiguous') {
       throw new Error('worktree_execution_host_unresolved')

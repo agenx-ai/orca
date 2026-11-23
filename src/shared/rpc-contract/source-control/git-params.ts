@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { OptionalGitAdmissionTier } from './git-admission-tier-params'
 import { OptionalTuiAgent } from '../workspaces/worktree-params'
 import { CONFLICT_RESOLUTIONS } from '../../source-control/listing/source-control-entry-actions'
+import { GIT_SUBMODULE_ACTIONS } from '../../git/submodules/git-submodule-action'
 
 export const WorktreeSelector = z.object({
   worktree: z
@@ -41,6 +42,10 @@ export const GitSubmoduleStatus = WorktreeSelector.extend({
   area: z.enum(['staged', 'unstaged', 'untracked']).optional()
 })
 
+export const GitSubmoduleActionParams = WorktreeSelector.extend({
+  action: z.enum(GIT_SUBMODULE_ACTIONS)
+})
+
 export const GitFilePath = WorktreeSelector.extend({
   filePath: z
     .unknown()
@@ -73,7 +78,13 @@ export const GitBranchCompare = WorktreeSelector.extend({
         .string()
         .min(1, 'Missing base ref')
         .refine((value) => !value.startsWith('-'), 'Base ref must not start with -')
-    )
+    ),
+  /** Compare this ref instead of the current HEAD; omitted keeps the existing HEAD behavior. */
+  headRef: z
+    .string()
+    .min(1, 'Missing head ref')
+    .refine((value) => !value.startsWith('-'), 'Head ref must not start with -')
+    .optional()
 })
 
 export const FullGitObjectId = z

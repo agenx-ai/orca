@@ -289,6 +289,7 @@ export abstract class RuntimeConstructionServices extends RuntimeAgentStatusRead
     selector: string,
     requiredHostId?: ExecutionHostId
   ): Promise<ResolvedWorktree>
+  protected abstract resolveFolderNestedGitSelector(selector: string): Promise<ResolvedWorktree>
   protected abstract resolveWorkspaceSelector(...args: Calls.SelectorArgs): Calls.SelectorResult
   protected abstract resolveWorkspaceCandidate(...args: Calls.SelectorArgs): Calls.CandidateResult
   protected abstract refreshPtyWorktreeRecordsWithControllerInventory(

@@ -32,14 +32,17 @@ import type { BranchSwitchCreation } from '../../../shared/git/branch-switch-tar
 import type { RuntimeGitLocalBranches } from '../../../shared/worktree/catalog/runtime-worktree-contracts'
 import type { GitAdmissionTier } from '../../../shared/rpc-contract/source-control/git-admission-tier-params'
 import type { GitBlameResult } from '../../../shared/git/blame/git-blame-types'
+import type { GitSubmoduleAction } from '../../../shared/git/submodules/git-submodule-action'
 
 export type IGitProvider = {
   getStatus(worktreePath: string, options?: GitProviderStatusOptions): Promise<GitStatusResult>
   getSubmoduleStatus(
     worktreePath: string,
     submodulePath: string,
-    area?: GitStagingArea
+    area?: GitStagingArea,
+    options?: { ignoreSubmodules?: 'all' | 'dirty' | 'untracked' }
   ): Promise<GitStatusResult>
+  runSubmoduleAction(worktreePath: string, action: GitSubmoduleAction): Promise<void>
   checkIgnoredPaths(worktreePath: string, relativePaths: string[]): Promise<string[]>
   getHistoryRefs(worktreePath: string, query?: string): Promise<GitHistoryItemRef[]>
   getHistory(worktreePath: string, options?: GitHistoryOptions): Promise<GitHistoryResult>
@@ -98,7 +101,8 @@ export type IGitProvider = {
   getBranchCompare(
     worktreePath: string,
     baseRef: string,
-    options?: { admissionTier?: GitAdmissionTier }
+    options?: { admissionTier?: GitAdmissionTier },
+    headRef?: string
   ): Promise<GitBranchCompareResult>
   getCommitCompare(worktreePath: string, commitId: string): Promise<GitCommitCompareResult>
   getUpstreamStatus(worktreePath: string, pushTarget?: GitPushTarget): Promise<GitUpstreamStatus>

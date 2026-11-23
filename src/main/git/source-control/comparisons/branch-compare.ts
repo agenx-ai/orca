@@ -23,12 +23,17 @@ import {
 export async function getBranchCompare(
   worktreePath: string,
   baseRef: string,
-  options: GitRuntimeOptions = {}
+  options: GitRuntimeOptions = {},
+  headRef?: string
 ): Promise<GitBranchCompareResult> {
+  const compareRefLabel =
+    headRef?.startsWith('refs/heads/') === true && headRef.length > 'refs/heads/'.length
+      ? headRef.slice('refs/heads/'.length)
+      : headRef
   const summary: GitBranchCompareSummary = {
     baseRef,
     baseOid: null,
-    compareRef: 'HEAD',
+    compareRef: compareRefLabel ?? 'HEAD',
     headOid: null,
     mergeBase: null,
     changedFiles: 0,
@@ -40,7 +45,10 @@ export async function getBranchCompare(
   // Reuse peeled commit OIDs only for branch refs; remote-tracking refs may hold annotated tags.
   const reusableProbedOidByRef = new Map<string, string>()
   const { compareRef, headOidResult, baseOidResult } = await readBranchCompareHead({
-    readCompareRef: () => resolveCompareRef(worktreePath, options),
+    readCompareRef: () =>
+      headRef === undefined
+        ? resolveCompareRef(worktreePath, options)
+        : Promise.resolve(compareRefLabel ?? headRef),
     resolveBaseRef: () =>
       // Short remote names can collide with local branches; resolve the qualified ref.
       resolveWorktreeAddBaseRef(baseRef, async (qualifiedRef) => {
@@ -50,7 +58,7 @@ export async function getBranchCompare(
         }
         return oid !== null
       }),
-    readHeadOid: () => resolveRefOid(worktreePath, 'HEAD', options),
+    readHeadOid: () => resolveRefOid(worktreePath, headRef ?? 'HEAD', options),
     readBaseOid: (ref) => {
       const reusableOid = reusableProbedOidByRef.get(ref)
       return reusableOid === undefined
@@ -66,6 +74,14 @@ export async function getBranchCompare(
     headOid = headOidResult.oid
     summary.headOid = headOid
   } else {
+    if (headRef !== undefined) {
+      if (baseOidResult.ok) {
+        summary.baseOid = baseOidResult.oid
+      }
+      summary.status = 'error'
+      summary.errorMessage = `Comparison ref ${headRef} could not be resolved in this repository.`
+      return { summary, entries: [] }
+    }
     if (baseOidResult.ok) {
       baseOid = baseOidResult.oid
       summary.baseOid = baseOid

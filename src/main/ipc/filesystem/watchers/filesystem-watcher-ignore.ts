@@ -27,29 +27,60 @@ function escapeRegex(value: string): string {
   return value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
 }
 
-function buildNestedDirectoryRegex(ignoreDirs: readonly string[]): string {
+// `.git` marks a repository, so its own entry must stay visible; only its contents are pruned.
+const REPOSITORY_MARKER_DIR = '.git'
+
+function buildNestedDirectoryRegex(ignoreDirs: readonly string[], contentsOnly = false): string {
   const alternatives = ignoreDirs.map(escapeRegex).join('|')
   if (process.platform === 'win32') {
-    return `^(?:[^\\\\/]+[\\\\/])*(?:${alternatives})(?:[\\\\/][\\s\\S]*)?$`
+    const suffix = contentsOnly ? '[\\\\/][\\s\\S]*' : '(?:[\\\\/][\\s\\S]*)?'
+    return `^(?:[^\\\\/]+[\\\\/])*(?:${alternatives})${suffix}$`
   }
   // Backslash is a valid POSIX filename character.
-  return `^(?:[^/]+/)*(?:${alternatives})(?:/[\\s\\S]*)?$`
+  const suffix = contentsOnly ? '/[\\s\\S]*' : '(?:/[\\s\\S]*)?'
+  return `^(?:[^/]+/)*(?:${alternatives})${suffix}$`
+}
+
+function buildIgnoreGlobs(ignoreDirs: readonly string[], allowGitMarkers: boolean): string[] {
+  const markerDirs = allowGitMarkers
+    ? ignoreDirs.filter((dir) => dir === REPOSITORY_MARKER_DIR)
+    : []
+  const prunedDirs = ignoreDirs.filter((dir) => !allowGitMarkers || dir !== REPOSITORY_MARKER_DIR)
+  const globs: string[] = []
+  if (prunedDirs.length > 0) {
+    globs.push(buildNestedDirectoryRegex(prunedDirs))
+  }
+  if (markerDirs.length > 0) {
+    globs.push(buildNestedDirectoryRegex(markerDirs, true))
+  }
+  return globs
 }
 
 export function buildParcelWatcherIgnoreOptions(
-  ignoreDirs: readonly string[]
+  ignoreDirs: readonly string[],
+  options: { allowGitMarkers?: boolean } = {}
 ): ParcelWatcherIgnoreOptions {
   if (ignoreDirs.length === 0) {
     return {}
   }
+  const allowGitMarkers = options.allowGitMarkers !== false
+  const ignoreGlobs = buildIgnoreGlobs(ignoreDirs, allowGitMarkers)
   if (process.platform !== 'darwin') {
     // Parcel 2.5.6 leading-** globs cause pathological std::regex lookaheads; one component regex avoids that cost.
-    return { ignoreGlobs: [buildNestedDirectoryRegex(ignoreDirs)] }
+    return { ignoreGlobs }
   }
-  const daemonExcludedDirs = ignoreDirs.slice(0, MACOS_FSEVENTS_EXCLUSION_PATH_LIMIT)
+  // `.git` stays out of native exclusions so a repository marker appearing or vanishing is still reported.
+  const daemonExcludedDirs = ignoreDirs
+    .filter((dir) => !allowGitMarkers || dir !== REPOSITORY_MARKER_DIR)
+    .slice(0, MACOS_FSEVENTS_EXCLUSION_PATH_LIMIT)
   return {
     ignore: [...daemonExcludedDirs],
     // Plain exclusions cover only the root; regex also prunes nested generated directories.
-    ignoreGlobs: [buildNestedDirectoryRegex(ignoreDirs)]
+    ignoreGlobs
   }
+}
+
+/** Parcel's initial crawl opens `.git`; an unreadable marker can fail the whole root, so callers retry pruned. */
+export function isWatcherSubscriptionPermissionError(error: unknown): boolean {
+  return error instanceof Error && /EACCES|EPERM|permission denied/i.test(error.message)
 }

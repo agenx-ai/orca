@@ -1,11 +1,33 @@
 import { GIT_REVERT_CONFLICT_CLIENT_CAPABILITY } from '../../../../../../shared/git/commands/git-commit-action'
 import type { GitConflictOperation } from '../../../../../../shared/git/status/git-status-types'
+import { parseFolderNestedGitSelector } from '../../../../../../shared/folder-workspaces/folder-nested-git'
 import {
   GitStatusParams,
   GitSubmoduleStatus,
   WorktreeSelector
 } from '../../../../../../shared/rpc-contract/source-control/git-params'
+import { realpath } from 'node:fs/promises'
+import { readFolderGitScanSettings } from '../../../../../project-groups/folder-git-settings'
 import { defineMethod } from '../../../core'
+
+async function nestedIgnoreSubmodules(
+  runtime: {
+    resolveRuntimeFileTarget: (selector: string) => Promise<{ worktree: { path: string } }>
+  },
+  worktreeSelector: string
+): Promise<'all' | 'dirty' | 'untracked' | undefined> {
+  const parsed = parseFolderNestedGitSelector(worktreeSelector)
+  if (!parsed) {
+    return undefined
+  }
+  try {
+    const folder = await runtime.resolveRuntimeFileTarget(parsed.folderSelector)
+    const settings = await readFolderGitScanSettings(await realpath(folder.worktree.path))
+    return settings.ignoreSubmodules ?? undefined
+  } catch {
+    return undefined
+  }
+}
 
 function projectConflictOperation(
   operation: GitConflictOperation,
@@ -22,10 +44,12 @@ export const GIT_STATUS_METHODS = [
     permission: 'workspace',
     params: GitSubmoduleStatus,
     handler: async (params, { runtime, clientCapabilities }) => {
+      const ignoreSubmodules = await nestedIgnoreSubmodules(runtime, params.worktree)
       const status = await runtime.getRuntimeGitSubmoduleStatus(
         params.worktree,
         params.submodulePath,
-        params.area
+        params.area,
+        ignoreSubmodules === undefined ? undefined : { ignoreSubmodules }
       )
       return {
         ...status,
@@ -38,7 +62,9 @@ export const GIT_STATUS_METHODS = [
     permission: 'workspace',
     params: GitStatusParams,
     handler: async (params, { runtime, signal, clientCapabilities }) => {
+      const ignoreSubmodules = await nestedIgnoreSubmodules(runtime, params.worktree)
       const options =
+        ignoreSubmodules === undefined &&
         params.includeIgnored === undefined &&
         params.includeLineStats === undefined &&
         params.bypassEffectiveUpstreamNegativeCache === undefined &&
@@ -61,6 +87,7 @@ export const GIT_STATUS_METHODS = [
               ...(params.branchLineTotalMergeBase === undefined
                 ? {}
                 : { branchLineTotalMergeBase: params.branchLineTotalMergeBase }),
+              ...(ignoreSubmodules === undefined ? {} : { ignoreSubmodules }),
               admissionTier: params.admissionTier ?? 'status',
               ...(signal ? { signal } : {})
             }

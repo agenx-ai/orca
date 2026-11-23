@@ -1,46 +1,21 @@
 import type { FsChangeEvent } from '../../../../shared/file-watch/filesystem-change-event'
 import {
   forgetRuntimeWatcherProcessRoot,
-  resetRuntimeWatcherProcessForTest,
-  subscribeViaRuntimeWatcherProcess
+  resetRuntimeWatcherProcessForTest
 } from '../../../ipc/filesystem/watcher-process/parcel-watcher-process'
 import type { WatcherProcessEvent } from '../../../ipc/filesystem/watcher-process/parcel-watcher-process-protocol'
-import type { WatcherProcessSubscription } from '../../../ipc/filesystem/watcher-process/parcel-watcher-process-subscription'
-import {
-  isWatcherProcessFailure,
-  type WatcherProcessFailure
-} from '../../../ipc/filesystem/watcher-process/parcel-watcher-process-failure'
-import {
-  WATCHER_IGNORE_DIRS,
-  buildParcelWatcherIgnoreOptions
-} from '../../../ipc/filesystem/watchers/filesystem-watcher-ignore'
+import { isWatcherProcessFailure } from '../../../ipc/filesystem/watcher-process/parcel-watcher-process-failure'
 import { createRuntimeRootOwnershipReleaser } from './runtime-root-watch-ownership'
 import { closeRuntimeRootWatch } from './runtime-root-watch-teardown'
+import { subscribeRuntimeFileWatchProcess } from './runtime-file-watch-subscribe'
+import type { RuntimeFileWatchSubscriber, RuntimeRootWatch } from './runtime-root-watch-types'
 import {
   RUNTIME_FILE_WATCH_CRAWL_TIMEOUT_MS,
   RUNTIME_FILE_WATCH_MAX_SETUP_ATTEMPTS
 } from '../../../../shared/file-watch/runtime-file-watch-limits'
 import { PromiseSettlementWaiters } from '../../../../shared/concurrency/promise-settlement-waiters'
 
-const RUNTIME_FILE_WATCH_IGNORE_OPTIONS = buildParcelWatcherIgnoreOptions(WATCHER_IGNORE_DIRS)
 const RUNTIME_FILE_WATCH_EVENT_LIMIT = 200
-
-type RuntimeFileWatchSubscriber = {
-  onEvents: (events: FsChangeEvent[]) => void
-  onTerminalError: (error: Error) => void
-}
-
-type RuntimeRootWatch = {
-  rootPath: string
-  subscribers: Set<RuntimeFileWatchSubscriber>
-  startWaiters: PromiseSettlementWaiters<void>
-  subscription: WatcherProcessSubscription | null
-  abortController: AbortController
-  generation: number
-  closed: boolean
-  closePromise: Promise<void> | null
-  terminalReleaseError: WatcherProcessFailure | null
-}
 
 // Share each root across clients; distribute roots over the crash-isolated child pool.
 const runtimeRootWatches = new Map<string, RuntimeRootWatch>()
@@ -113,7 +88,7 @@ function subscribeRuntimeRootWatch(root: RuntimeRootWatch): Promise<void> {
       emitToSubscribers(root, overflowEvent(root.rootPath))
     }
   }
-  return subscribeViaRuntimeWatcherProcess(
+  return subscribeRuntimeFileWatchProcess(
     root.rootPath,
     (err, events) => {
       if (root.generation !== generation || root.closed) {
@@ -129,7 +104,6 @@ function subscribeRuntimeRootWatch(root: RuntimeRootWatch): Promise<void> {
       }
       emitToSubscribers(root, mapWatcherEvents(events))
     },
-    RUNTIME_FILE_WATCH_IGNORE_OPTIONS,
     {
       delivery: {
         includeDirectoryMetadata: true,

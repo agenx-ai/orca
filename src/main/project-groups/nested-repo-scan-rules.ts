@@ -61,7 +61,9 @@ export function normalizeNestedRepoScanOptions(options: unknown): NormalizedNest
   return {
     maxDepth:
       typeof raw.maxDepth === 'number' && Number.isFinite(raw.maxDepth)
-        ? Math.max(1, Math.min(8, Math.floor(raw.maxDepth)))
+        ? Math.trunc(raw.maxDepth) === -1
+          ? -1
+          : Math.max(0, Math.trunc(raw.maxDepth))
         : DEFAULT_MAX_DEPTH,
     maxRepos:
       typeof raw.maxRepos === 'number' && Number.isFinite(raw.maxRepos)
@@ -76,14 +78,28 @@ export function normalizeNestedRepoScanOptions(options: unknown): NormalizedNest
   }
 }
 
-function shouldSkipDirectory(name: string, depth: number): boolean {
+function shouldSkipDirectory(
+  name: string,
+  depth: number,
+  extraIgnoredFolders?: ReadonlySet<string>
+): boolean {
   if (VCS_METADATA_DIRS.has(name)) {
     return true
   }
-  if (SKIPPED_DIRS.has(name)) {
+  if (SKIPPED_DIRS.has(name) || extraIgnoredFolders?.has(name)) {
     return true
   }
   return depth > 0 && name.startsWith('.')
+}
+
+/** Built-in skips apply even to explicit git.scanRepositories candidates. */
+export function isHardSkippedNestedRepoPath(segments: readonly string[]): boolean {
+  return segments.some((segment, depth) => shouldSkipDirectory(segment, depth))
+}
+
+/** Windows paths compare case-insensitively for repository config matching. */
+export function nestedRepoPathKey(path: string): string {
+  return process.platform === 'win32' ? path.toLowerCase() : path
 }
 
 function compileGlobSegment(pattern: string): GlobSegment {
@@ -210,7 +226,8 @@ function parseGitignoreRules(content: string, baseSegments: string[]): IgnoreRul
 export function isIgnoredNestedRepoDirectory(
   name: string,
   segments: string[],
-  rules: IgnoreRule[]
+  rules: IgnoreRule[],
+  extraIgnoredFolders?: ReadonlySet<string>
 ): boolean {
   let ignored = false
   for (const rule of rules) {
@@ -225,7 +242,7 @@ export function isIgnoredNestedRepoDirectory(
       ignored = !rule.negate
     }
   }
-  return ignored || shouldSkipDirectory(name, segments.length - 1)
+  return ignored || shouldSkipDirectory(name, segments.length - 1, extraIgnoredFolders)
 }
 
 export async function readNestedRepoGitignoreRules(args: {

@@ -2,7 +2,11 @@ import type {
   GitCommitAction,
   GitCommitActionResult
 } from '../../../../../shared/git/commands/git-commit-action'
-import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-client-context'
+import {
+  resolveLocalWorktreePath,
+  usesRuntimeGitRpc,
+  type RuntimeGitContext
+} from './runtime-git-client-context'
 import { callRuntimeRpc } from '../../rpc/calls/runtime-rpc-call'
 import { toRuntimeWorktreeSelector } from '../../rpc/targets/runtime-worktree-selector'
 
@@ -12,7 +16,7 @@ export async function createRuntimeGitBranch(
   startPoint: string,
   beforeSend?: () => void
 ): Promise<GitCommitActionResult> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     beforeSend?.()
     return window.api.git.createBranch({
       worktreePath: resolveLocalWorktreePath(context),
@@ -38,7 +42,7 @@ export async function cherryPickRuntimeGit(
   commitId: string,
   beforeSend?: () => void
 ): Promise<GitCommitActionResult> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     beforeSend?.()
     return window.api.git.cherryPick({
       worktreePath: resolveLocalWorktreePath(context),
@@ -59,7 +63,7 @@ export async function revertRuntimeGit(
   commitId: string,
   beforeSend?: () => void
 ): Promise<GitCommitActionResult> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     beforeSend?.()
     return window.api.git.revert({
       worktreePath: resolveLocalWorktreePath(context),
@@ -79,7 +83,7 @@ export async function sequencerAbortRuntimeGit(
   context: RuntimeGitContext,
   operation: GitCommitAction
 ): Promise<void> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.sequencerAbort({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -98,7 +102,7 @@ export async function sequencerContinueRuntimeGit(
   context: RuntimeGitContext,
   operation: GitCommitAction
 ): Promise<GitCommitActionResult | void> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.sequencerContinue({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,

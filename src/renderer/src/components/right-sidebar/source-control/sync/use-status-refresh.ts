@@ -68,7 +68,7 @@ export function useSourceControlStatusRefresh({
         return
       }
       // Why the captured host: a mutation callback can outlive a switch to a same-path twin.
-      const copy = resolveWorktreeGitCopyNow(activeWorktreeId, activeCopyHostId)
+      const copy = scope?.gitCopy ?? resolveWorktreeGitCopyNow(activeWorktreeId, activeCopyHostId)
       if (!copy) {
         return
       }
@@ -83,7 +83,15 @@ export function useSourceControlStatusRefresh({
         request: { admissionTier: 'interactive', ...(signal ? { signal } : {}) }
       })
     },
-    [activeCopyHostId, activeRepoTarget, activeWorktreeId, activePushTarget, isFolder, worktreePath]
+    [
+      activeCopyHostId,
+      activeRepoTarget,
+      activeWorktreeId,
+      activePushTarget,
+      isFolder,
+      scope?.gitCopy,
+      worktreePath
+    ]
   )
   const refreshActiveGitStatusAfterMutation = useCallback(async (): Promise<void> => {
     try {

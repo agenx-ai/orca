@@ -21,6 +21,7 @@ import {
   GitRebaseFromBase,
   GitRemoteCommitUrl,
   GitRemoteFileUrl,
+  GitSubmoduleActionParams,
   GitTargetedRemote,
   WorktreeSelector
 } from '../../../../../../shared/rpc-contract/source-control/git-params'
@@ -78,6 +79,13 @@ export const GIT_METHODS = [
     params: WorktreeSelector,
     handler: async (params, { runtime }) => runtime.abortRuntimeGitRebase(params.worktree)
   }),
+  defineMethod({
+    name: 'git.submoduleAction',
+    permission: 'workspace',
+    params: GitSubmoduleActionParams,
+    handler: async (params, { runtime }) =>
+      runtime.runRuntimeGitSubmoduleAction(params.worktree, params.action)
+  }),
   ...GIT_COMMIT_ACTION_METHODS,
   defineMethod({
     name: 'git.checkout',
@@ -99,7 +107,12 @@ export const GIT_METHODS = [
     permission: 'workspace',
     params: GitBranchCompare,
     handler: async (params, { runtime }) =>
-      runtime.getRuntimeGitBranchCompare(params.worktree, params.baseRef, params.admissionTier)
+      runtime.getRuntimeGitBranchCompare(
+        params.worktree,
+        params.baseRef,
+        params.admissionTier,
+        params.headRef
+      )
   }),
   defineMethod({
     name: 'git.commitCompare',

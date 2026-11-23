@@ -11,4 +11,6 @@ export type GetStatusOptions = GitRuntimeOptions & {
   bypassEffectiveUpstreamNegativeCache?: boolean
   /** Hide real symlinks at Orca-shared paths; directory-only ignore rules cannot hide those links. */
   sharedLinkPaths?: readonly string[]
+  /** git.ignoreSubmodules override; omit to keep Git's configured behavior. */
+  ignoreSubmodules?: 'all' | 'dirty' | 'untracked'
 }

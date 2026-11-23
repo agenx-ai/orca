@@ -105,6 +105,7 @@ export function useWorktreeGitStatusObservation(
   const activeRepoId = activeWorktree?.repoId ?? null
   const selectedRepo = useRepoById(owner ? null : activeRepoId)
   const activeRepo = owner?.repo ?? selectedRepo
+  const ownerGitCopy = owner?.gitCopy
   const activeRepoSupportsGit = activeRepo ? isGitRepoKind(activeRepo) : false
   const activeConnectionId = activeRepo?.connectionId ?? null
   const isActiveConnectionReady = useAppStore(
@@ -150,7 +151,8 @@ export function useWorktreeGitStatusObservation(
       }
       try {
         // Why one resolution: a same-path twin must not get this copy's transport, SSH target or answer.
-        const copy = resolveWorktreeGitCopyNow(activeWorktreeId, activeExecutionHostId)
+        const copy =
+          ownerGitCopy ?? resolveWorktreeGitCopyNow(activeWorktreeId, activeExecutionHostId)
         if (!copy) {
           return
         }
@@ -182,6 +184,7 @@ export function useWorktreeGitStatusObservation(
       activeWorktreeId,
       fetchUpstreamStatus,
       canFetchActiveWorktreeGitStatus,
+      ownerGitCopy,
       publishUpstreamRefWatch,
       worktreePath,
       setGitStatus,

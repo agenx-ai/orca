@@ -10,11 +10,14 @@ import {
 import type { AppState } from '@/store/types'
 import { getConnectionId } from '@/lib/workspace/ownership/connection-context'
 import type { Repo } from '../../../../../../shared/repository/repo-types'
+import type { WorktreeGitCopy } from '@/lib/workspace/ownership/worktree-git-copy'
 import type { AttachedWorktreeOwner } from '../../folder-workspaces/folder-workspace-attached-worktrees'
 
 export type SourceControlScope = AttachedWorktreeOwner & {
   repo: Repo
   placementWorkspaceId: string
+  /** Synthetic folder targets have no catalog row; carry the exact Git route instead of re-resolving by id. */
+  gitCopy?: WorktreeGitCopy
 }
 /** Routing fields only, so worktree record churn (activity, unread, metadata) cannot refire scoped Git work. */
 export type SourceControlScopeRouting = Pick<
@@ -23,6 +26,7 @@ export type SourceControlScopeRouting = Pick<
 > & {
   connectionId: string | null
   runtimeOwnerEnvironmentId: string | undefined
+  gitCopy?: WorktreeGitCopy
 }
 const WorktreeScope = createContext<SourceControlScopeRouting | null>(null)
 const WorktreeScopeOwner = createContext<SourceControlScope | null>(null)
@@ -62,6 +66,7 @@ export function SourceControlScopeProvider({
   const { worktreeId, repoId, executionHostId, placementWorkspaceId } = currentOwner
   const connectionId = currentOwner.repo.connectionId ?? null
   const runtimeOwnerEnvironmentId = currentOwner.worktree.runtimeOwnerEnvironmentId
+  const gitCopy = currentOwner.gitCopy
   const routing = useMemo(
     () => ({
       worktreeId,
@@ -69,7 +74,8 @@ export function SourceControlScopeProvider({
       executionHostId,
       placementWorkspaceId,
       connectionId,
-      runtimeOwnerEnvironmentId
+      runtimeOwnerEnvironmentId,
+      ...(gitCopy ? { gitCopy } : {})
     }),
     [
       worktreeId,
@@ -77,7 +83,8 @@ export function SourceControlScopeProvider({
       executionHostId,
       placementWorkspaceId,
       connectionId,
-      runtimeOwnerEnvironmentId
+      runtimeOwnerEnvironmentId,
+      gitCopy
     ]
   )
   useEffect(() => {

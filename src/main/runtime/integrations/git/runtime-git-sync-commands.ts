@@ -5,6 +5,7 @@ import type {
 } from '../../../../shared/git/remotes/git-fork-sync'
 import type { GitUpstreamStatus } from '../../../../shared/git/status/git-status-types'
 import type { GitPushTarget } from '../../../../shared/worktree/types'
+import type { GitSubmoduleAction } from '../../../../shared/git/submodules/git-submodule-action'
 import { materializeWorktreePushTargetRemote } from '../../../ipc/worktrees/worktree-remote'
 import { assertRuntimeReadWslDistroRunning } from './runtime-wsl-background-read-gate'
 import type { LocalGitProvider } from '../../../providers/git/local-provider'
@@ -48,6 +49,15 @@ export class RuntimeGitSyncCommands {
   async abortRuntimeGitRebase(worktreeSelector: string): Promise<{ ok: true }> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
     await requireRuntimeGitProvider(target).abortRebase(target.worktree.path)
+    return { ok: true }
+  }
+
+  async runRuntimeGitSubmoduleAction(
+    worktreeSelector: string,
+    action: GitSubmoduleAction
+  ): Promise<{ ok: true }> {
+    const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
+    await requireRuntimeGitProvider(target).runSubmoduleAction(target.worktree.path, action)
     return { ok: true }
   }
 

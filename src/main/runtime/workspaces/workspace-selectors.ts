@@ -27,6 +27,8 @@ import {
 } from '../../../shared/execution-host/worktree-execution-host-resolution'
 import { RuntimeProjectLaunchContext } from './startup/runtime-project-launch-context'
 import { folderIdOfSelector } from '../../../shared/workspace/identity/workspace-scope'
+import { parseFolderNestedGitSelector } from '../../../shared/folder-workspaces/folder-nested-git'
+import { resolveFolderNestedGitWorkspace } from './folder-nested-git-target'
 import {
   folderCandidate,
   folderCatalogOf,
@@ -37,6 +39,7 @@ import {
   type WorkspaceSelectorOptions,
   WORKSPACE_SELECTOR_NOT_FOUND
 } from './catalog/workspace-selector-candidates'
+
 export abstract class RuntimeWorkspaceSelectors extends RuntimeProjectLaunchContext {
   protected abstract hasFreshResolvedWorktreeCache(
     ...args: Parameters<RuntimeWorkspaceCatalog['hasFreshResolvedWorktreeCache']>
@@ -49,6 +52,21 @@ export abstract class RuntimeWorkspaceSelectors extends RuntimeProjectLaunchCont
   protected abstract listResolvedWorktrees(
     ...args: Parameters<RuntimeWorkspaceCatalog['listResolvedWorktrees']>
   ): ReturnType<RuntimeWorkspaceCatalog['listResolvedWorktrees']>
+
+  /** Only Git RPC paths may synthesize a nested checkout; workspace lifecycle and metadata calls must reject it. */
+  protected async resolveFolderNestedGitSelector(selector: string): Promise<ResolvedWorktree> {
+    const nested = parseFolderNestedGitSelector(selector)
+    if (!nested) {
+      throw new Error('selector_not_found')
+    }
+    return resolveFolderNestedGitWorkspace({
+      selector,
+      parsed: nested,
+      requiredHostId: undefined,
+      resolveWorkspaceCandidate: (folderSelector, options) =>
+        this.resolveWorkspaceCandidate(folderSelector, options)
+    })
+  }
 
   /** The repo-backed catalog only: project-group folder workspaces never match. Resolve a workspace with resolveWorkspaceSelector. */
   protected async resolveGitWorktreeSelector(

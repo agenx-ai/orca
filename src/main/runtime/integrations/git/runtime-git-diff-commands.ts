@@ -46,12 +46,16 @@ export class RuntimeGitDiffCommands {
   async getRuntimeGitBranchCompare(
     worktreeSelector: string,
     baseRef: string,
-    admissionTier: GitAdmissionTier = 'interactive'
+    admissionTier: GitAdmissionTier = 'interactive',
+    headRef?: string
   ): Promise<GitBranchCompareResult> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    return requireRuntimeGitProvider(target).getBranchCompare(target.worktree.path, baseRef, {
-      admissionTier
-    })
+    return requireRuntimeGitProvider(target).getBranchCompare(
+      target.worktree.path,
+      baseRef,
+      { admissionTier },
+      headRef
+    )
   }
 
   async getRuntimeGitCommitCompare(

@@ -166,6 +166,52 @@ describe('getBranchCompare real refs', () => {
     })
   })
 
+  it('compares an explicit head ref instead of the checked-out HEAD', async () => {
+    const repo = await mkdtemp(path.join(tmpdir(), 'orca-branch-compare-head-ref-'))
+    tempRoots.push(repo)
+    git(repo, ['init', '-q', '-b', 'main'])
+    git(repo, ['config', 'user.email', 'test@example.com'])
+    git(repo, ['config', 'user.name', 'Test User'])
+    git(repo, ['config', 'commit.gpgSign', 'false'])
+    git(repo, ['commit', '--allow-empty', '-qm', 'initial'])
+    git(repo, ['branch', 'base'])
+    git(repo, ['checkout', '-qb', 'feature'])
+    await writeFile(path.join(repo, 'feature.txt'), 'feature\n')
+    git(repo, ['add', 'feature.txt'])
+    git(repo, ['commit', '-qm', 'feature addition'])
+    const featureOid = git(repo, ['rev-parse', 'feature'])
+    git(repo, ['checkout', '-q', 'main'])
+
+    const explicit = await getBranchCompare(repo, 'base', {}, 'refs/heads/feature')
+    expect(explicit.summary).toMatchObject({
+      compareRef: 'feature',
+      headOid: featureOid,
+      commitsAhead: 1,
+      changedFiles: 1,
+      status: 'ready'
+    })
+    expect((await getBranchCompare(repo, 'base')).summary.commitsAhead).toBe(0)
+  })
+
+  it('fails an explicit head ref that does not resolve', async () => {
+    const repo = await mkdtemp(path.join(tmpdir(), 'orca-branch-compare-missing-head-'))
+    tempRoots.push(repo)
+    git(repo, ['init', '-q', '-b', 'main'])
+    git(repo, ['config', 'user.email', 'test@example.com'])
+    git(repo, ['config', 'user.name', 'Test User'])
+    git(repo, ['config', 'commit.gpgSign', 'false'])
+    git(repo, ['commit', '--allow-empty', '-qm', 'initial'])
+    git(repo, ['branch', 'base'])
+
+    const result = await getBranchCompare(repo, 'base', {}, 'refs/heads/missing')
+    expect(result.summary).toMatchObject({
+      status: 'error',
+      compareRef: 'missing',
+      errorMessage: 'Comparison ref refs/heads/missing could not be resolved in this repository.'
+    })
+    expect(result.entries).toEqual([])
+  })
+
   it('preserves the raw oid of a remote-tracking ref that stores an annotated tag', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'orca-branch-compare-ref-'))
     tempRoots.push(root)

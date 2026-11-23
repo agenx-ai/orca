@@ -16,6 +16,12 @@ export type StatusPorcelainRead = {
 const STATUS_ARGS = ['-c', 'core.quotePath=false', 'status', '--porcelain=v2', '--branch']
 const ALL_UNTRACKED_FILES_ARG = '--untracked-files=all'
 
+function statusArgs(options: GetStatusOptions): string[] {
+  return options.ignoreSubmodules
+    ? [...STATUS_ARGS, `--ignore-submodules=${options.ignoreSubmodules}`]
+    : STATUS_ARGS
+}
+
 /** When each worktree's expansion last fell back to -uall, so polls skip a configured scan they would discard. */
 const expansionFallbackAtMs = new BoundedMap<string, number>({ maxEntries: 256 })
 // Expansion fallbacks (many or out-of-cwd directories) tend to persist; retry the cheap scan only occasionally.
@@ -49,7 +55,7 @@ export async function readStatusPorcelain(
   if (scan === 'uall') {
     return streamAllUntracked(worktreePath, options, limit)
   }
-  const read = await streamStatusPorcelain(STATUS_ARGS, worktreePath, options, limit)
+  const read = await streamStatusPorcelain(statusArgs(options), worktreePath, options, limit)
   if (read.error !== undefined || scan === 'configured-all') {
     return read
   }
@@ -104,7 +110,7 @@ function streamAllUntracked(
   extraArgs: readonly string[] = []
 ): Promise<StatusPorcelainRead> {
   return streamStatusPorcelain(
-    [...STATUS_ARGS, ALL_UNTRACKED_FILES_ARG, ...extraArgs],
+    [...statusArgs(options), ALL_UNTRACKED_FILES_ARG, ...extraArgs],
     worktreePath,
     options,
     limit

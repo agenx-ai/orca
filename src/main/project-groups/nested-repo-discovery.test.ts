@@ -89,6 +89,40 @@ describe('scanNestedRepos', () => {
     expect(result.repos.map((repo) => repo.path)).toEqual(['/workspace/api'])
   })
 
+  it('applies ignored folders, ignored repositories, and extra scan roots', async () => {
+    const directories = new Map([
+      ['/workspace', ['kept', 'ignored', 'vendor', 'custom-ignored', 'nested']],
+      ['/workspace/nested', ['deep']]
+    ])
+    const gitRepos = new Set([
+      '/workspace/kept',
+      '/workspace/ignored',
+      '/workspace/vendor',
+      '/workspace/vendor/sdk',
+      '/workspace/custom-ignored',
+      '/workspace/nested/deep',
+      '/workspace/extra'
+    ])
+
+    const result = await scanNestedRepos({
+      path: '/workspace',
+      options: { maxDepth: 3 },
+      ignoredFolders: ['custom-ignored'],
+      ignoredRepositories: ['ignored'],
+      extraRoots: [
+        { path: '/workspace/extra', segments: ['extra'] },
+        { path: '/workspace/vendor/sdk', segments: ['vendor', 'sdk'] }
+      ],
+      filesystem: posixTestFilesystem({ directories, gitRepos })
+    })
+
+    expect(result.repos.map((repo) => repo.path)).toEqual([
+      '/workspace/extra',
+      '/workspace/kept',
+      '/workspace/nested/deep'
+    ])
+  })
+
   it.skipIf(process.platform === 'win32')(
     'does not follow symlinked directories outside the selected folder',
     async () => {

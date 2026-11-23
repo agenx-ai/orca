@@ -5,6 +5,7 @@ import {
   type ExecutionHostId
 } from '../../../../../shared/execution-host/execution-host'
 import { parseWorkspaceKey } from '../../../../../shared/workspace/identity/workspace-scope'
+import { folderWorkspaceIdFromNestedGitSelector } from '../../../../../shared/folder-workspaces/folder-nested-git'
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../../../shared/workspace/identity/floating-workspace-id'
 import { getRepoIdFromWorktreeId } from '../../../../../shared/worktree/id'
 import { resolveExactWorktreeRoute } from './worktree-owner-route'
@@ -184,17 +185,18 @@ function resolveSelectedHostRoute(
     }
   }
   const scope = parseWorkspaceKey(worktreeId)
-  if (
-    scope?.type === 'folder' &&
-    findFolderWorkspaceOwner(state, scope.folderWorkspaceId, selectedHost.id)
-  ) {
+  const folderWorkspaceId =
+    scope?.type === 'folder'
+      ? scope.folderWorkspaceId
+      : folderWorkspaceIdFromNestedGitSelector(worktreeId)
+  if (folderWorkspaceId && findFolderWorkspaceOwner(state, folderWorkspaceId, selectedHost.id)) {
     return {
       kind: 'resolved',
       route: {
         executionHostId: selectedHost.id,
         runtimeEnvironmentId: getRuntimeEnvironmentIdForFolderWorkspace(
           state,
-          scope.folderWorkspaceId,
+          folderWorkspaceId,
           selectedHost.id
         )
       }
@@ -267,8 +269,12 @@ function resolveOwnerRouteResult(
   }
   // Folders never appear in worktree/repo catalogs; resolve their own records or local folders fail closed as unknown cross-host IDs (#10251).
   const workspaceScope = parseWorkspaceKey(worktreeId)
-  if (workspaceScope?.type === 'folder') {
-    return resolveFolderWorkspaceOperationRoute(state, workspaceScope.folderWorkspaceId)
+  const folderId =
+    workspaceScope?.type === 'folder'
+      ? workspaceScope.folderWorkspaceId
+      : folderWorkspaceIdFromNestedGitSelector(worktreeId)
+  if (folderId) {
+    return resolveFolderWorkspaceOperationRoute(state, folderId)
   }
   const explicitResolution = resolveExplicitWorktreeOperationRouteResult(state, worktreeId)
   if (explicitResolution.kind !== 'missing') {

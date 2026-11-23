@@ -411,6 +411,11 @@ import {
   TerminalArtifactFileChunk,
   TerminalArtifactFileWrite
 } from './filesystem/files-terminal-artifact-params'
+import {
+  FolderReposScan,
+  FolderReposScanQuery,
+  FolderReposSettings
+} from './folder-repos/folder-repos-params'
 import { BindableAccounts, ValidateAccountBinding } from './github/github-account-binding-params'
 import { UploadGitHubAttachment } from './github/github-attachment-params'
 import { CreateIssue, Issue, IssueComment, UpdateIssue } from './github/github-issue-params'
@@ -809,6 +814,7 @@ import {
   GitResolveConflict,
   GitSequencer,
   GitStatusParams,
+  GitSubmoduleActionParams,
   GitSubmoduleStatus,
   GitSwitchBranch,
   GitTargetedRemote,
@@ -1532,6 +1538,10 @@ export const RPC_PARAMS_BY_METHOD = {
   'files.writeBase64Chunk': FileWriteBase64Chunk,
   'files.writeIfUnchanged': FileWriteIfUnchanged,
   'files.writeTerminalArtifact': TerminalArtifactFileWrite,
+  'folderRepos.cancelScan': FolderReposScanQuery,
+  'folderRepos.scan': FolderReposScan,
+  'folderRepos.scanProgress': FolderReposScanQuery,
+  'folderRepos.settings': FolderReposSettings,
   'folderWorkspace.create': FolderWorkspaceCreate,
   'folderWorkspace.delete': FolderWorkspaceDelete,
   'folderWorkspace.getPathStatus': FolderWorkspacePathStatus,
@@ -1580,6 +1590,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'git.sequencerContinue': GitSequencer,
   'git.stage': GitFilePath,
   'git.status': GitStatusParams,
+  'git.submoduleAction': GitSubmoduleActionParams,
   'git.submoduleStatus': GitSubmoduleStatus,
   'git.switchBranch': GitSwitchBranch,
   'git.unstage': GitFilePath,

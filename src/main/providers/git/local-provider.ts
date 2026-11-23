@@ -37,6 +37,7 @@ import { getBlame } from '../../git/source-control/blame/git-blame-read'
 import { getStagedCommitContext } from '../../git/source-control/mutations/staged-commit-context'
 import { getStatus } from '../../git/source-control/status/status-read'
 import { getSubmoduleStatus } from '../../git/source-control/submodules/submodule-status'
+import { runSubmoduleAction } from '../../git/source-control/submodules/submodule-actions'
 import { getUpstreamStatus } from '../../git/source-control/upstream/upstream'
 import { listWorktrees } from '../../git/worktrees/catalog/worktree-scan-cache'
 import type { IGitProvider } from './provider-contract'
@@ -73,11 +74,16 @@ export function createLocalGitProvider(options: LocalGitProviderOptions = {}): L
         ...(sharedLinkPaths.length > 0 ? { sharedLinkPaths } : {})
       })
     },
-    getSubmoduleStatus: (worktreePath, submodulePath, area = 'unstaged') =>
+    getSubmoduleStatus: (worktreePath, submodulePath, area = 'unstaged', statusOptions) =>
       getSubmoduleStatus(worktreePath, submodulePath, {
         ...interactive,
+        ...(statusOptions?.ignoreSubmodules
+          ? { ignoreSubmodules: statusOptions.ignoreSubmodules }
+          : {}),
         ...(area === 'staged' ? { staged: true } : {})
       }),
+    runSubmoduleAction: (worktreePath, action) =>
+      runSubmoduleAction(worktreePath, action, interactive),
     checkIgnoredPaths: (worktreePath, relativePaths) =>
       checkIgnoredPaths(worktreePath, relativePaths, interactive),
     getHistoryRefs: (worktreePath, query) => getHistoryRefs(worktreePath, query, interactive),
@@ -129,11 +135,16 @@ export function createLocalGitProvider(options: LocalGitProviderOptions = {}): L
         creation
       ),
     listLocalBranches: (worktreePath) => listLocalBranches(worktreePath, base),
-    getBranchCompare: (worktreePath, baseRef, compareOptions) =>
-      getBranchCompare(worktreePath, baseRef, {
-        ...base,
-        admissionTier: compareOptions?.admissionTier ?? 'interactive'
-      }),
+    getBranchCompare: (worktreePath, baseRef, compareOptions, headRef) =>
+      getBranchCompare(
+        worktreePath,
+        baseRef,
+        {
+          ...base,
+          admissionTier: compareOptions?.admissionTier ?? 'interactive'
+        },
+        headRef
+      ),
     getCommitCompare: (worktreePath, commitId) =>
       getCommitCompare(worktreePath, commitId, interactive),
     getUpstreamStatus: (worktreePath, pushTarget) =>

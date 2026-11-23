@@ -10,7 +10,11 @@ import type {
   GitStatusResult
 } from '../../../../../shared/git/status/git-status-types'
 import type { WorktreeAtRiskLocalFiles } from '../../../../../shared/worktree/removal/at-risk-local-files'
-import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-client-context'
+import {
+  resolveLocalWorktreePath,
+  usesRuntimeGitRpc,
+  type RuntimeGitContext
+} from './runtime-git-client-context'
 import { callRuntimeRpc } from '../../rpc/calls/runtime-rpc-call'
 import { toRuntimeWorktreeSelector } from '../../rpc/targets/runtime-worktree-selector'
 
@@ -40,7 +44,7 @@ export async function getRuntimeGitStatus(
   const branchLineTotalArgs = options?.branchLineTotalMergeBase
     ? { branchLineTotalMergeBase: options.branchLineTotalMergeBase }
     : {}
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return callLocalGitStatus(
       {
         worktreePath: resolveLocalWorktreePath(context),
@@ -80,8 +84,7 @@ export async function setRuntimeGitStatusUpstreamRefWatch(
   context: RuntimeGitContext,
   args: { executionHostId: string; branch?: string; upstreamName?: string }
 ): Promise<void> {
-  const target = context.target
-  if (target.kind !== 'local' || !context.worktreeId) {
+  if (usesRuntimeGitRpc(context) || !context.worktreeId) {
     return
   }
   await window.api.git.setStatusUpstreamRefWatch({
@@ -135,7 +138,7 @@ export async function getRuntimeGitSubmoduleStatus(
   area: GitStagingArea = 'unstaged'
 ): Promise<GitStatusResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.submoduleStatus({
       worktreePath: resolveLocalWorktreePath(context),
       submodulePath,
@@ -159,7 +162,7 @@ export async function getRuntimeGitIgnoredPaths(
   if (paths.length === 0) {
     return []
   }
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.checkIgnored({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -178,7 +181,7 @@ export async function getRuntimeWorktreeAtRiskLocalFiles(
   context: RuntimeGitContext,
   signal?: AbortSignal
 ): Promise<WorktreeAtRiskLocalFiles> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     const args = {
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
@@ -223,7 +226,7 @@ export async function getRuntimeGitRefs(
   context: RuntimeGitContext,
   query?: string
 ): Promise<GitHistoryItemRef[]> {
-  if (context.target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.refs({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -244,7 +247,7 @@ export async function getRuntimeGitHistory(
   { wakeWslDistro, ...options }: GitHistoryOptions & { wakeWslDistro?: boolean } = {}
 ): Promise<GitHistoryResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.history({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
@@ -264,7 +267,7 @@ export async function getRuntimeGitConflictOperation(
   context: RuntimeGitContext
 ): Promise<GitConflictOperation> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.conflictOperation({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
@@ -282,7 +285,7 @@ export async function getRuntimeGitMutationInFlight(
   context: RuntimeGitContext
 ): Promise<GitMutationInFlight> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.mutationInFlight({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId

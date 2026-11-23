@@ -5,6 +5,7 @@ import { antigravityGenerationCompatibilityError } from './antigravity-generatio
 import {
   getRuntimeCommitMessageSettings,
   resolveLocalWorktreePath,
+  usesRuntimeGitRpc,
   type RuntimeDiscoverCommitMessageModelsResult,
   type RuntimeGenerateCommitMessageOverrides,
   type RuntimeGenerateCommitMessageResult,
@@ -21,7 +22,7 @@ export async function generateRuntimeCommitMessage(
   overrides?: RuntimeGenerateCommitMessageOverrides
 ): Promise<RuntimeGenerateCommitMessageResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     const result = await window.api.git.generateCommitMessage({
       worktreePath: resolveLocalWorktreePath(context),
       // Why: the workspace suffix is part of the worktree metadata key.
@@ -36,12 +37,15 @@ export async function generateRuntimeCommitMessage(
     })
     return localizeTextGenerationResult(result)
   }
-  const compatibilityError = await antigravityGenerationCompatibilityError(
-    target.environmentId,
-    context,
-    'commitMessage',
-    overrides
-  )
+  const compatibilityError =
+    target.kind === 'environment'
+      ? await antigravityGenerationCompatibilityError(
+          target.environmentId,
+          context,
+          'commitMessage',
+          overrides
+        )
+      : null
   if (compatibilityError) {
     return { success: false, error: compatibilityError }
   }
@@ -67,7 +71,7 @@ export async function discoverRuntimeCommitMessageModels(
   agentId: string
 ): Promise<RuntimeDiscoverCommitMessageModelsResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     return window.api.git.discoverCommitMessageModels({
       agentId,
       worktreePath: resolveLocalWorktreePath(context),
@@ -92,7 +96,7 @@ export async function cancelRuntimeGenerateCommitMessage(
   context: RuntimeGitContext
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.cancelGenerateCommitMessage({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
@@ -113,7 +117,7 @@ export async function generateRuntimePullRequestFields(
   overrides?: RuntimeGeneratePullRequestFieldsOverrides
 ): Promise<RuntimeGeneratePullRequestFieldsResult> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     const result = await window.api.git.generatePullRequestFields({
       worktreePath: resolveLocalWorktreePath(context),
       // Why: the workspace suffix is part of the worktree metadata key.
@@ -129,12 +133,15 @@ export async function generateRuntimePullRequestFields(
     })
     return localizeTextGenerationResult(result)
   }
-  const compatibilityError = await antigravityGenerationCompatibilityError(
-    target.environmentId,
-    context,
-    'pullRequest',
-    overrides
-  )
+  const compatibilityError =
+    target.kind === 'environment'
+      ? await antigravityGenerationCompatibilityError(
+          target.environmentId,
+          context,
+          'pullRequest',
+          overrides
+        )
+      : null
   if (compatibilityError) {
     return { success: false, error: compatibilityError }
   }
@@ -160,7 +167,7 @@ export async function cancelRuntimeGeneratePullRequestFields(
   context: RuntimeGitContext
 ): Promise<void> {
   const target = context.target
-  if (target.kind === 'local' || !context.worktreeId) {
+  if (!usesRuntimeGitRpc(context) || !context.worktreeId) {
     await window.api.git.cancelGeneratePullRequestFields({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId

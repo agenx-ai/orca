@@ -80,4 +80,60 @@ describe('filesystem watcher native ignores', () => {
     const generatedPaths = new Set(generatedFiles)
     expect(events.filter((event) => generatedPaths.has(event.path))).toEqual([])
   })
+
+  it('reports repository markers while pruning their contents', async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'orca-watch-marker-')))
+    const events: Event[] = []
+    const errors: Error[] = []
+    subscription = await subscribe(
+      root,
+      (error, batch) => {
+        if (error) {
+          errors.push(error)
+        }
+        events.push(...batch)
+      },
+      buildParcelWatcherIgnoreOptions(WATCHER_IGNORE_DIRS)
+    )
+    const gitDir = join(root, '.git')
+    const gitHead = join(gitDir, 'HEAD')
+    const sentinel = join(root, 'sentinel.ts')
+    const seen = (file: string, type?: Event['type']): boolean =>
+      events.some((event) => event.path === file && (!type || event.type === type))
+    let revision = 0
+    const writeSentinel = async (): Promise<number> => {
+      revision += 1
+      const start = events.length
+      await writeFile(sentinel, `sentinel ${revision}`)
+      return start
+    }
+    const waitForSentinel = (start: number) =>
+      vi.waitFor(
+        () => expect(events.slice(start).some((event) => event.path === sentinel)).toBe(true),
+        { timeout: DELIVERY_TIMEOUT_MS, interval: 200 }
+      )
+
+    await mkdir(gitDir)
+    await vi.waitFor(() => expect(seen(gitDir, 'create')).toBe(true), {
+      timeout: DELIVERY_TIMEOUT_MS,
+      interval: 200
+    })
+
+    // The marker's watch is installed before its create event is delivered, so a missed child
+    // update now proves descendant pruning rather than a startup race.
+    const gitWriteSentinel = await writeSentinel()
+    await writeFile(gitHead, 'ref: refs/heads/main')
+    await waitForSentinel(gitWriteSentinel)
+    expect(seen(gitHead)).toBe(false)
+
+    await rm(gitDir, { recursive: true, force: true })
+    const deleteSentinel = await writeSentinel()
+    await vi.waitFor(() => expect(seen(gitDir, 'delete')).toBe(true), {
+      timeout: DELIVERY_TIMEOUT_MS,
+      interval: 200
+    })
+    await waitForSentinel(deleteSentinel)
+
+    expect(errors).toEqual([])
+  })
 })
